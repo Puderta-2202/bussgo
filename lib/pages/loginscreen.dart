@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'home_screen.dart';
 
 const Color mainBlue = Color(0xFF1A9AEB);
 
@@ -8,216 +9,253 @@ class LoginScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    final double height = size.height;
-    final double width = size.width;
 
     return Scaffold(
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: IntrinsicHeight(
-                  child: Column(
-                    children: [
-                      Stack(
-                        children: [
-                          Container(
-                            width: width,
-                            height: height * 0.35,
-                            decoration: const BoxDecoration(
-                              image: DecorationImage(
-                                image: AssetImage('assets/images/bis.jpg'),
-                                fit: BoxFit.cover,
-                                alignment: Alignment.bottomCenter,
-                              ),
+      body: Stack(
+        children: [
+          // Background utama
+          Container(color: mainBlue),
+
+          // Konten scroll
+          SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: size.height),
+              child: IntrinsicHeight(
+                child: Column(
+                  children: [
+                    Stack(
+                      children: [
+                        Container(
+                          width: size.width,
+                          height: size.height * 0.35,
+                          decoration: const BoxDecoration(
+                            image: DecorationImage(
+                              image: AssetImage('assets/images/bis.jpg'),
+                              fit: BoxFit.cover,
+                              alignment: Alignment.bottomCenter,
                             ),
                           ),
-                          Positioned(
-                            bottom: -1,
-                            child: CustomPaint(
-                              size: Size(width, 40),
-                              painter: BusContainerCurvePainter(),
-                            ),
+                        ),
+                        Positioned(
+                          bottom: -1,
+                          child: CustomPaint(
+                            size: Size(size.width, 40),
+                            painter: BusContainerCurvePainter(),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    SizedBox(height: size.height * 0.02),
+
+                    Container(
+                      width: size.width * 0.9,
+                      padding: EdgeInsets.all(size.width * 0.05),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(15),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 5),
                           ),
                         ],
                       ),
-
-                      SizedBox(height: height * 0.02),
-
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: width * 0.05),
-                        child: Container(
-                          padding: EdgeInsets.all(width * 0.05),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(15),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 10,
-                                offset: const Offset(0, 5),
-                              ),
-                            ],
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Sign Up',
+                            style: TextStyle(
+                              fontSize: size.width * 0.045,
+                              fontWeight: FontWeight.w500,
+                              fontFamily: 'Maname',
+                              color: Colors.black87,
+                            ),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.center,
+                          SizedBox(height: size.height * 0.02),
+
+                          // Username
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(30),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 2,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            child: TextField(
+                              decoration: InputDecoration(
+                                hintText: 'Username',
+                                hintStyle: TextStyle(
+                                  color: Colors.grey[400],
+                                  fontSize: size.width * 0.035,
+                                  fontFamily: 'Mandali',
+                                ),
+                                prefixIcon: Icon(
+                                  Icons.person_outline,
+                                  color: Colors.grey[400],
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                  borderSide: BorderSide.none,
+                                ),
+                                contentPadding: EdgeInsets.symmetric(
+                                  vertical: size.height * 0.02,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          SizedBox(height: size.height * 0.015),
+
+                          // Password
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(30),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 2,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            child: TextField(
+                              obscureText: true,
+                              decoration: InputDecoration(
+                                hintText: 'Password',
+                                hintStyle: TextStyle(
+                                  color: Colors.grey[400],
+                                  fontSize: size.width * 0.035,
+                                  fontFamily: 'Mandali',
+                                ),
+                                prefixIcon: Icon(
+                                  Icons.lock_outline,
+                                  color: Colors.grey[400],
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                  borderSide: BorderSide.none,
+                                ),
+                                contentPadding: EdgeInsets.symmetric(
+                                  vertical: size.height * 0.02,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          SizedBox(height: size.height * 0.025),
+
+                          Container(
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(30),
+                              gradient: const LinearGradient(
+                                colors: [mainBlue, mainBlue],
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                              ),
+                            ),
+                            child: ElevatedButton(
+                              onPressed: () {
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const HomeScreen(),
+                                  ),
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                shadowColor: Colors.transparent,
+                                padding: EdgeInsets.symmetric(
+                                  vertical: size.height * 0.018,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                              ),
+                              child: Text(
+                                'Login',
+                                style: TextStyle(
+                                  fontSize: size.width * 0.04,
+                                  fontWeight: FontWeight.w500,
+                                  fontFamily: 'Maname',
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          SizedBox(height: size.height * 0.015),
+
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(
-                                'Sign Up',
+                                'Register',
                                 style: TextStyle(
-                                  fontSize: width * 0.05,
-                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black54,
+                                  fontSize: size.width * 0.03,
+                                  fontWeight: FontWeight.w500,
                                   fontFamily: 'Maname',
-                                  color: Colors.black87,
                                 ),
                               ),
-                              SizedBox(height: height * 0.025),
-
-                              _buildInputField(
-                                hintText: 'Username',
-                                icon: Icons.person_outline,
-                                width: width,
-                                height: height,
-                              ),
-
-                              SizedBox(height: height * 0.015),
-
-                              _buildInputField(
-                                hintText: 'Password',
-                                icon: Icons.lock_outline,
-                                width: width,
-                                height: height,
-                                obscureText: true,
-                              ),
-
-                              SizedBox(height: height * 0.025),
-
-                              Container(
-                                width: double.infinity,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(30),
-                                  gradient: const LinearGradient(
-                                    colors: [mainBlue, mainBlue],
-                                  ),
+                              SizedBox(width: size.width * 0.015),
+                              Padding(
+                                padding: EdgeInsets.only(
+                                  top: size.height * 0.005,
                                 ),
-                                child: ElevatedButton(
-                                  onPressed: () {},
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.transparent,
-                                    shadowColor: Colors.transparent,
-                                    padding: EdgeInsets.symmetric(
-                                      vertical: height * 0.02,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(30),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    'Login',
-                                    style: TextStyle(
-                                      fontSize: width * 0.04,
-                                      fontWeight: FontWeight.w500,
-                                      fontFamily: 'Maname',
-                                      color: Colors.white,
-                                    ),
+                                child: Container(
+                                  width: 5,
+                                  height: 5,
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.black54,
                                   ),
                                 ),
                               ),
-
-                              SizedBox(height: height * 0.015),
-
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    'Register',
-                                    style: TextStyle(
-                                      color: Colors.black54,
-                                      fontSize: width * 0.03,
-                                      fontWeight: FontWeight.w500,
-                                      fontFamily: 'Maname',
-                                    ),
-                                  ),
-                                  SizedBox(width: width * 0.015),
-                                  Container(
-                                    width: 5,
-                                    height: 5,
-                                    decoration: const BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: Colors.black54,
-                                    ),
-                                  ),
-                                  SizedBox(width: width * 0.015),
-                                  Text(
-                                    'Forgot Password',
-                                    style: TextStyle(
-                                      color: Colors.black54,
-                                      fontSize: width * 0.03,
-                                      fontWeight: FontWeight.w500,
-                                      fontFamily: 'Maname',
-                                    ),
-                                  ),
-                                ],
+                              SizedBox(width: size.width * 0.015),
+                              Text(
+                                'Forgot Password',
+                                style: TextStyle(
+                                  color: Colors.black54,
+                                  fontSize: size.width * 0.03,
+                                  fontWeight: FontWeight.w500,
+                                  fontFamily: 'Maname',
+                                ),
                               ),
                             ],
                           ),
-                        ),
+                        ],
                       ),
+                    ),
 
-                      const Spacer(),
-
-                      CustomPaint(
-                        size: Size(width, 80),
-                        painter: BottomWavePainter(),
-                      ),
-                    ],
-                  ),
+                    SizedBox(height: size.height * 0.1), // Tambahan spacer
+                  ],
                 ),
               ),
-            );
-          },
-        ),
-      ),
-    );
-  }
+            ),
+          ),
 
-  Widget _buildInputField({
-    required String hintText,
-    required IconData icon,
-    required double width,
-    required double height,
-    bool obscureText = false,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 2,
-            offset: const Offset(0, 1),
+          // Wave di bawah layar
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: CustomPaint(
+              size: Size(size.width, 80),
+              painter: BottomWavePainter(),
+            ),
           ),
         ],
-      ),
-      child: TextField(
-        obscureText: obscureText,
-        decoration: InputDecoration(
-          hintText: hintText,
-          hintStyle: TextStyle(
-            color: Colors.grey[400],
-            fontSize: width * 0.035,
-            fontFamily: 'Mandali',
-          ),
-          prefixIcon: Icon(icon, color: Colors.grey[400]),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(30),
-            borderSide: BorderSide.none,
-          ),
-          contentPadding: EdgeInsets.symmetric(vertical: height * 0.02),
-        ),
       ),
     );
   }
@@ -230,7 +268,6 @@ class BusContainerCurvePainter extends CustomPainter {
         Paint()
           ..color = mainBlue
           ..style = PaintingStyle.fill;
-
     final path = Path();
     path.moveTo(0, 0);
     path.cubicTo(

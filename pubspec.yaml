@@ -83,6 +83,9 @@ flutter:
     - family: Mandali
       fonts:
         - asset: assets/fonts/Mandali-Regular.ttf
+    - family: Racing
+      fonts:
+        - asset: assets/fonts/RacingSansOne-Regular.ttf
 
   
   # For details regarding fonts from package dependencies,
