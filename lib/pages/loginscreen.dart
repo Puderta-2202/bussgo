@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
+import 'register_screen.dart';
+import 'forget_password.dart';
 
 const Color mainBlue = Color(0xFF1A9AEB);
 
@@ -199,13 +201,24 @@ class LoginScreen extends StatelessWidget {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text(
-                                'Register',
-                                style: TextStyle(
-                                  color: Colors.black54,
-                                  fontSize: size.width * 0.03,
-                                  fontWeight: FontWeight.w500,
-                                  fontFamily: 'Maname',
+                              GestureDetector(
+                                onTap: () {
+                                  // Navigasi ke halaman Register saat "Register" diklik
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => RegisterScreen(),
+                                    ), // Ganti RegisterScreen dengan halaman register yang sesuai
+                                  );
+                                },
+                                child: Text(
+                                  'Register',
+                                  style: TextStyle(
+                                    color: Colors.black54,
+                                    fontSize: size.width * 0.03,
+                                    fontWeight: FontWeight.w500,
+                                    fontFamily: 'Maname',
+                                  ),
                                 ),
                               ),
                               SizedBox(width: size.width * 0.015),
@@ -223,13 +236,25 @@ class LoginScreen extends StatelessWidget {
                                 ),
                               ),
                               SizedBox(width: size.width * 0.015),
-                              Text(
-                                'Forgot Password',
-                                style: TextStyle(
-                                  color: Colors.black54,
-                                  fontSize: size.width * 0.03,
-                                  fontWeight: FontWeight.w500,
-                                  fontFamily: 'Maname',
+                              GestureDetector(
+                                onTap: () {
+                                  // Navigasi ke halaman Forgot Password saat "Forgot Password" diklik
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (context) => ForgetPasswordScreen(),
+                                    ), // Ganti ForgotPasswordScreen dengan halaman yang sesuai
+                                  );
+                                },
+                                child: Text(
+                                  'Forgot Password',
+                                  style: TextStyle(
+                                    color: Colors.black54,
+                                    fontSize: size.width * 0.03,
+                                    fontWeight: FontWeight.w500,
+                                    fontFamily: 'Maname',
+                                  ),
                                 ),
                               ),
                             ],

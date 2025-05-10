@@ -80,13 +80,18 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                     // BusGO Logo
-                    const Text(
-                      'BusGO',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontFamily: 'Racing',
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
+                    Padding(
+                      padding: const EdgeInsets.only(
+                        right: 30.0,
+                      ), // Memberikan jarak ke kiri
+                      child: const Text(
+                        'BusGO',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontFamily: 'Racing',
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
