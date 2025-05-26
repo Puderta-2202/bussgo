@@ -138,64 +138,65 @@ class _TiketSayaPageState extends State<TiketSayaPage> {
                       ],
                     ),
                     const SizedBox(height: 8),
+
                     Row(
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: const [
-                              Text(
-                                'Senin, 07 April 2025',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
-                              ),
-                              SizedBox(height: 2),
-                              Text('Medan', style: TextStyle(fontSize: 11)),
-                            ],
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: const [
+                        Text(
+                          'Senin, 07 April 2025',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
                           ),
                         ),
-                        Expanded(
-                          flex: 2,
-                          child: Column(
-                            children: const [
-                              Text(
-                                '08:00 - 09:00',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
-                              ),
-                              SizedBox(height: 14),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          flex: 3,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: const [
-                              Text(
-                                'Binjai',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
+                        Text(
+                          '08:00 - 09:00',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    Center(
-                      child: Icon(
-                        Icons.arrow_forward,
-                        size: 16,
-                        color: Colors.grey[700],
-                      ),
+
+                    const SizedBox(height: 15),
+                    // Rute dengan alignment dan panah tengah
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Medan',
+                              style: TextStyle(fontSize: 11),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 1,
+                          child: Center(
+                            child: Icon(
+                              Icons.arrow_forward,
+                              size: 16,
+                              color: Colors.grey[700],
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 3,
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              'Binjai',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
