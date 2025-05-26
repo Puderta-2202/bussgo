@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'tiket_saya.dart';
 
 const Color mainBlue = Color(0xFF1A9AEB);
 
@@ -16,6 +17,13 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _selectedIndex = index;
     });
+
+    if (index == 1) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const TiketSayaPage()),
+      );
+    }
   }
 
   @override
