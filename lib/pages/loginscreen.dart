@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import 'register_screen.dart';
 import 'forget_password.dart';
+import 'app_color.dart';
 
-const Color mainBlue = Color(0xFF1A9AEB);
+// const Color mainBlue = Color(0xFF1A9AEB);
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({Key? key}) : super(key: key);

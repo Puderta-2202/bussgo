@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'jadwalkeberangkatan.dart' show JadwalKeberangkatanModel;
-
-const Color mainBlue = Color(0xFF1A9AEB);
-const Color cardLightBlue = Color(0xFFD1E9FA);
-const Color screenBgLightBlue = Color(0xFFE3F2FD);
+import 'perjalanan_screen.dart';
+import 'app_color.dart';
+// const Color mainBlue = Color(0xFF1A9AEB);
+// const Color cardLightBlue = Color(0xFFD1E9FA);
+// const Color screenBgLightBlue = Color(0xFFE3F2FD);
 
 class DetailPerjalananScreen extends StatefulWidget {
   final String kotaAsal;
@@ -261,16 +262,32 @@ class _DetailPerjalananScreenState extends State<DetailPerjalananScreen> {
                       onPressed:
                           _termsAccepted
                               ? () {
-                                // Aksi ke halaman pembayaran
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Menuju halaman metode pembayaran... (Belum Diimplementasi)',
-                                    ),
+                                // Aksi ke halaman pembayaran - MODIFIKASI DI SINI
+                                int hargaPerTiket = _parseHarga(
+                                  widget.jadwalTerpilih.harga,
+                                ); // Pastikan _parseHarga ada
+                                int totalHarga =
+                                    hargaPerTiket * widget.jumlahPenumpang;
+
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (context) => PembayaranScreen(
+                                          totalHarga: totalHarga,
+                                          kotaAsal: '',
+                                          kotaTujuan: '',
+                                          tanggalKeberangkatan:
+                                              widget.tanggalKeberangkatan,
+                                          jadwalTerpilih: widget.jadwalTerpilih,
+                                          jumlahPenumpang:
+                                              widget.jumlahPenumpang,
+                                          // orderId: "generate_atau_ambil_order_id_disini", // Contoh jika ada orderId
+                                        ),
                                   ),
                                 );
                               }
-                              : null, // Tombol disable jika terms belum disetujui
+                              : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: mainBlue,
                         padding: const EdgeInsets.symmetric(vertical: 15),
@@ -300,7 +317,7 @@ class _DetailPerjalananScreenState extends State<DetailPerjalananScreen> {
   Widget _buildDetailCard({required Widget child}) {
     return Card(
       elevation: 0, // Sesuai gambar, tidak ada shadow yang kuat
-      color: cardLightBlue,
+      color: cardBgColor,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
       child: Padding(padding: const EdgeInsets.all(16.0), child: child),
     );

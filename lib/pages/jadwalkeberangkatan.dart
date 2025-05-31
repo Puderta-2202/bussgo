@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'detail_tiket.dart';
+import 'app_color.dart';
 
 // --- Model Class JadwalKeberangkatanModel (tetap sama seperti sebelumnya) ---
 class JadwalKeberangkatanModel {
@@ -28,11 +29,11 @@ class JadwalKeberangkatanModel {
 }
 // --- Akhir Model Class ---
 
-const Color mainBlue = Color(0xFF1A9AEB);
-const Color cardLightBlueJadwal = Color(
-  0xFFD1E9FA,
-); // Beri nama berbeda jika warna kartu beda
-const Color screenBgLightBlueJadwal = Color(0xFFE3F2FD);
+// const Color mainBlue = Color(0xFF1A9AEB);
+// const Color cardLightBlueJadwal = Color(
+//   0xFFD1E9FA,
+// ); // Beri nama berbeda jika warna kartu beda
+// const Color screenBgLightBlueJadwal = Color(0xFFE3F2FD);
 
 class JadwalKeberangkatanScreen extends StatelessWidget {
   final String kotaAsal;
@@ -98,7 +99,7 @@ class JadwalKeberangkatanScreen extends StatelessWidget {
     ).format(tanggalKeberangkatan);
 
     return Scaffold(
-      backgroundColor: screenBgLightBlueJadwal,
+      backgroundColor: screenBgLightBlue,
       appBar: AppBar(
         // ... (AppBar tetap sama) ...
         backgroundColor: mainBlue,

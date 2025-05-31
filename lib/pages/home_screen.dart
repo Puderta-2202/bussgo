@@ -2,28 +2,53 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'tiket_saya.dart';
 import 'jadwalkeberangkatan.dart';
-
-const Color mainBlue = Color(0xFF1A9AEB);
-const Color unselectableSeatColor = Color(0xFFA0A0A0);
-const Color availableSeatColor = Color(0xFFD0D0D0);
-const Color selectedSeatColor = mainBlue;
+import 'akun_screen.dart';
+import 'app_color.dart';
+import 'nav_bar.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<HomeScreen> createState() => HomeScreenState(); // Nama kelas State menjadi publik
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  int _selectedIndex = 0;
+class HomeScreenState extends State<HomeScreen> {
+  // Variabel static saldo menjadi publik di dalam kelas State yang juga publik
+  static double numericalBusPayBalance = 0.0;
+  static String busPayBalanceString = "Memuat saldo...";
+  static bool isLoadingBalanceStatic = true;
+
+  static void updateAndFormatBusPayBalance(
+    double newNumericalBalance, {
+    Function? stateSetter,
+  }) {
+    numericalBusPayBalance = newNumericalBalance;
+    busPayBalanceString = NumberFormat.currency(
+      locale: 'id_ID',
+      symbol: 'Rp ',
+      decimalDigits: 0,
+    ).format(numericalBusPayBalance);
+    isLoadingBalanceStatic = false;
+    if (stateSetter != null) {
+      // Memastikan stateSetter dipanggil dengan aman
+      try {
+        stateSetter(() {});
+      } catch (e) {
+        // Mungkin widget sudah tidak ada, tangani error jika perlu
+        // print("Error calling stateSetter in updateAndFormatBusPayBalance: $e");
+      }
+    }
+  }
+
+  final int _currentIndex = 0; // Index untuk halaman Beranda
+
   int _jumlahKursiTerpilih = 0;
   List<String> _detailKursiTerpilih = [];
   DateTime? _selectedDepartureDate;
-  String? _selectedDariCity; // Variabel untuk kota asal
-  String? _selectedKeCity; // Variabel untuk kota tujuan
+  String? _selectedDariCity;
+  String? _selectedKeCity;
 
-  // Daftar kota di Sumatera Utara
   final List<String> _kotaSumateraUtara = [
     'Medan',
     'Pematang Siantar',
@@ -39,26 +64,165 @@ class _HomeScreenState extends State<HomeScreen> {
     'Stabat',
     'Kabanjahe',
     'Sidikalang',
+    'Berastagi',
+    'Dolok Sanggul',
+    'Samosir',
+    'Saribudolok',
+    'Tarutung',
+    'Siborong-borong',
     'Panyabungan',
-    // Tambahkan kota lain jika perlu
   ];
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+  @override
+  void initState() {
+    super.initState();
+    _fetchBusPayBalance();
+  }
 
-    if (index == 1) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const TiketSayaPage()),
-      );
+  Future<void> _fetchBusPayBalance() async {
+    if (mounted) {
+      // Cek mounted sebelum setState
+      setState(() {
+        HomeScreenState.isLoadingBalanceStatic = true;
+        HomeScreenState.busPayBalanceString = "Memuat saldo...";
+      });
+    }
+
+    await Future.delayed(const Duration(seconds: 1)); // Simulasi delay
+    double fetchedBalanceFromDB = 1250750.0; // Saldo awal dummy
+
+    // Gunakan `mounted` check sebelum memanggil setState melalui stateSetter
+    HomeScreenState.updateAndFormatBusPayBalance(
+      fetchedBalanceFromDB,
+      stateSetter: mounted ? setState : null,
+    );
+  }
+
+  void _handleBottomNavTapped(int index) {
+    if (index == _currentIndex) return;
+
+    switch (index) {
+      case 0:
+        // Sudah di Beranda
+        break;
+      case 1: // Tiket Saya
+        // Asumsi TiketSayaPage bisa menangani tiketDibeli yang null
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const TiketSayaPage()),
+        );
+        break;
+      case 2: // Promo
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Halaman Promo belum tersedia.')),
+        );
+        break;
+      case 3: // Akun
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const AkunScreen()),
+        );
+        break;
+    }
+  }
+
+  Future<void> _showCityPickerDialog(
+    BuildContext context,
+    bool isDariField,
+  ) async {
+    final String? selectedCity = await showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(
+            'Pilih Kota ${isDariField ? "Asal" : "Tujuan"}',
+            textAlign: TextAlign.start,
+          ),
+          contentPadding: const EdgeInsets.only(
+            top: 10.0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: MediaQuery.of(context).size.height * 0.6,
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: _kotaSumateraUtara.length,
+              itemBuilder: (BuildContext context, int index) {
+                return ListTile(
+                  title: Center(child: Text(_kotaSumateraUtara[index])),
+                  onTap: () {
+                    Navigator.of(context).pop(_kotaSumateraUtara[index]);
+                  },
+                );
+              },
+              separatorBuilder:
+                  (context, index) => const Divider(height: 1, thickness: 1),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Batal', style: TextStyle(color: mainBlue)),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+
+    if (selectedCity != null && mounted) {
+      // Cek mounted
+      setState(() {
+        if (isDariField) {
+          _selectedDariCity = selectedCity;
+        } else {
+          _selectedKeCity = selectedCity;
+        }
+      });
+    }
+  }
+
+  Future<void> _selectDepartureDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDepartureDate ?? DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+      helpText: 'PILIH TANGGAL KEBERANGKATAN',
+      cancelText: 'BATAL',
+      confirmText: 'PILIH',
+      builder: (BuildContext context, Widget? child) {
+        return Theme(
+          data: ThemeData.light().copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: mainBlue,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black,
+            ),
+            dialogBackgroundColor: Colors.white,
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(foregroundColor: mainBlue),
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null && picked != _selectedDepartureDate && mounted) {
+      // Cek mounted
+      setState(() {
+        _selectedDepartureDate = picked;
+      });
     }
   }
 
   Future<void> _showSeatPickerDialog(BuildContext context) async {
     List<String> tempSelectedSeats = List.from(_detailKursiTerpilih);
-
     final result = await showDialog<List<String>>(
       context: context,
       barrierDismissible: false,
@@ -72,7 +236,6 @@ class _HomeScreenState extends State<HomeScreen> {
             }) {
               bool isSelected = tempSelectedSeats.contains(label);
               Color seatColor;
-
               if (!isSelectable) {
                 seatColor = unselectableSeatColor;
               } else if (isSelected) {
@@ -80,7 +243,6 @@ class _HomeScreenState extends State<HomeScreen> {
               } else {
                 seatColor = availableSeatColor;
               }
-
               return GestureDetector(
                 onTap:
                     isSelectable
@@ -128,8 +290,7 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             }
 
-            List<Widget> dialogSeatWidgets = [];
-            dialogSeatWidgets.add(
+            List<Widget> dialogSeatWidgets = [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
@@ -139,9 +300,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   buildSeat('Sopir', isSpecial: true, isSelectable: false),
                 ],
               ),
-            );
-            dialogSeatWidgets.add(const Divider(height: 20, thickness: 1));
-
+              const Divider(height: 20, thickness: 1),
+            ];
             List<Widget> numberedSeatRows = [];
             int currentSeatNum = 1;
             for (int i = 0; i < 14 && currentSeatNum <= 55; i++) {
@@ -164,7 +324,6 @@ class _HomeScreenState extends State<HomeScreen> {
               }
             }
             dialogSeatWidgets.addAll(numberedSeatRows);
-
             return AlertDialog(
               title: const Center(
                 child: Text(
@@ -217,8 +376,8 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       },
     );
-
-    if (result != null) {
+    if (result != null && mounted) {
+      // Cek mounted
       setState(() {
         _detailKursiTerpilih = result;
         _jumlahKursiTerpilih = _detailKursiTerpilih.length;
@@ -226,108 +385,21 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _selectDepartureDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDepartureDate ?? DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
-      helpText: 'PILIH TANGGAL KEBERANGKATAN',
-      cancelText: 'BATAL',
-      confirmText: 'PILIH',
-      builder: (BuildContext context, Widget? child) {
-        return Theme(
-          data: ThemeData.light().copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: mainBlue,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: Colors.black,
-            ),
-            dialogBackgroundColor: Colors.white,
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(foregroundColor: mainBlue),
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null && picked != _selectedDepartureDate) {
-      setState(() {
-        _selectedDepartureDate = picked;
-      });
-    }
-  }
-
-  // Fungsi untuk menampilkan dialog pemilihan kota
-  Future<void> _showCityPickerDialog(
-    BuildContext context,
-    bool isDariField,
-  ) async {
-    final String? selectedCity = await showDialog<String>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(
-            'Pilih Kota ${isDariField ? "Asal" : "Tujuan"}',
-            textAlign: TextAlign.center,
-          ),
-          contentPadding: const EdgeInsets.only(
-            top: 10.0,
-          ), // Mengurangi padding atas default
-          content: SizedBox(
-            width: double.maxFinite,
-            height:
-                MediaQuery.of(context).size.height *
-                0.5, // Batasi tinggi dialog
-            child: ListView.separated(
-              shrinkWrap: true,
-              itemCount: _kotaSumateraUtara.length,
-              itemBuilder: (BuildContext context, int index) {
-                return ListTile(
-                  title: Text(_kotaSumateraUtara[index]),
-                  onTap: () {
-                    Navigator.of(context).pop(_kotaSumateraUtara[index]);
-                  },
-                );
-              },
-              separatorBuilder: (context, index) => const Divider(height: 1),
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Batal', style: TextStyle(color: mainBlue)),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
-    );
-
-    if (selectedCity != null) {
-      setState(() {
-        if (isDariField) {
-          _selectedDariCity = selectedCity;
-        } else {
-          _selectedKeCity = selectedCity;
-        }
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: screenBgLightBlue, // Dari app_colors.dart
       body: Column(
         children: [
           Container(
-            // ... (Top Section - unchanged) ...
-            padding: const EdgeInsets.fromLTRB(10, 25, 10, 15),
+            padding: const EdgeInsets.fromLTRB(
+              10,
+              45,
+              10,
+              20,
+            ), // Disesuaikan agar status bar tidak overlap
             decoration: const BoxDecoration(
-              color: mainBlue,
+              color: mainBlue, // Dari app_colors.dart
               borderRadius: BorderRadius.only(
                 bottomLeft: Radius.circular(30),
                 bottomRight: Radius.circular(30),
@@ -347,6 +419,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             shape: BoxShape.circle,
                             color: Colors.grey[300],
                             image: const DecorationImage(
+                              // Pastikan aset ini ada di pubspec.yaml dan path benar
                               image: AssetImage('assets/images/pp.jpeg'),
                               fit: BoxFit.cover,
                             ),
@@ -395,7 +468,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 Container(
                   padding: const EdgeInsets.all(15),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF64B5F6),
+                    color: const Color(
+                      0xFF64B5F6,
+                    ), // Bisa juga dari app_colors.dart
                     borderRadius: BorderRadius.circular(15),
                   ),
                   child: Column(
@@ -426,16 +501,32 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 5),
                       Row(
                         children: [
-                          const Text(
-                            'Rp 1.000.000',
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                          HomeScreenState.isLoadingBalanceStatic
+                              ? const SizedBox(
+                                height: 20,
+                                width: 100,
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: SizedBox(
+                                    height: 16,
+                                    width: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                ),
+                              )
+                              : Text(
+                                HomeScreenState.busPayBalanceString,
+                                style: const TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                           const SizedBox(width: 8),
-                          Icon(
+                          const Icon(
                             Icons.remove_red_eye_outlined,
                             color: Colors.black54,
                           ),
@@ -449,22 +540,20 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           Expanded(
             child: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(color: Color(0xFFE3F2FD)),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+              decoration: const BoxDecoration(
+                color: screenBgLightBlue,
+              ), // Dari app_colors.dart
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Dari (From) Field - MODIFIED
                   const Text(
                     'Dari',
                     style: TextStyle(color: Colors.black87, fontSize: 16),
                   ),
                   GestureDetector(
                     onTap: () {
-                      _showCityPickerDialog(
-                        context,
-                        true,
-                      ); // true untuk isDariField
+                      _showCityPickerDialog(context, true);
                     },
                     child: AbsorbPointer(
                       child: Row(
@@ -481,10 +570,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               padding: const EdgeInsets.symmetric(vertical: 5),
                               decoration: const BoxDecoration(
                                 border: Border(
-                                  bottom: BorderSide(
-                                    color: Colors.black54,
-                                    width: 1.0,
-                                  ),
+                                  bottom: BorderSide(color: Colors.black54),
                                 ),
                               ),
                               child: Align(
@@ -512,18 +598,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-
-                  // Ke (To) Field - MODIFIED
                   const Text(
                     'Ke',
                     style: TextStyle(color: Colors.black87, fontSize: 16),
                   ),
                   GestureDetector(
                     onTap: () {
-                      _showCityPickerDialog(
-                        context,
-                        false,
-                      ); // false untuk isDariField (artinya Ke)
+                      _showCityPickerDialog(context, false);
                     },
                     child: AbsorbPointer(
                       child: Row(
@@ -540,10 +621,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               padding: const EdgeInsets.symmetric(vertical: 5),
                               decoration: const BoxDecoration(
                                 border: Border(
-                                  bottom: BorderSide(
-                                    color: Colors.black54,
-                                    width: 1.0,
-                                  ),
+                                  bottom: BorderSide(color: Colors.black54),
                                 ),
                               ),
                               child: Align(
@@ -571,8 +649,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-
-                  // Tanggal Keberangkatan (Departure Date) Field - unchanged
                   const Text(
                     'Tanggal Keberangkatan',
                     style: TextStyle(color: Colors.black87, fontSize: 16),
@@ -596,10 +672,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               padding: const EdgeInsets.symmetric(vertical: 5),
                               decoration: const BoxDecoration(
                                 border: Border(
-                                  bottom: BorderSide(
-                                    color: Colors.black54,
-                                    width: 1.0,
-                                  ),
+                                  bottom: BorderSide(color: Colors.black54),
                                 ),
                               ),
                               child: Align(
@@ -631,8 +704,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-
-                  // Jumlah Kursi (Number of Seats) Field - unchanged
                   const Text(
                     'Jumlah Kursi',
                     style: TextStyle(color: Colors.black87, fontSize: 16),
@@ -656,10 +727,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               padding: const EdgeInsets.symmetric(vertical: 5),
                               decoration: const BoxDecoration(
                                 border: Border(
-                                  bottom: BorderSide(
-                                    color: Colors.black54,
-                                    width: 1.0,
-                                  ),
+                                  bottom: BorderSide(color: Colors.black54),
                                 ),
                               ),
                               child: Align(
@@ -697,45 +765,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   const SizedBox(height: 30),
-
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () {
                         if (_selectedDariCity == null ||
-                            _selectedDariCity!.isEmpty) {
+                            _selectedKeCity == null ||
+                            _selectedDepartureDate == null ||
+                            (_jumlahKursiTerpilih == 0 &&
+                                _detailKursiTerpilih.isEmpty)) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Kota asal belum dipilih!'),
-                            ),
-                          );
-                          return;
-                        }
-                        if (_selectedKeCity == null ||
-                            _selectedKeCity!.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Kota tujuan belum dipilih!'),
-                            ),
-                          );
-                          return;
-                        }
-                        if (_selectedDepartureDate == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Tanggal keberangkatan belum dipilih!',
-                              ),
-                            ),
-                          );
-                          return;
-                        }
-                        if (_jumlahKursiTerpilih == 0 &&
-                            _detailKursiTerpilih.isEmpty) {
-                          // Cek apakah kursi sudah dipilih
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Jumlah kursi belum dipilih!'),
+                              content: Text('Harap lengkapi semua pilihan!'),
                             ),
                           );
                           return;
@@ -748,7 +789,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                   kotaAsal: _selectedDariCity!,
                                   kotaTujuan: _selectedKeCity!,
                                   tanggalKeberangkatan: _selectedDepartureDate!,
-                                  // Menggunakan _jumlahKursiTerpilih atau panjang dari _detailKursiTerpilih
                                   jumlahPenumpang:
                                       _detailKursiTerpilih.isNotEmpty
                                           ? _detailKursiTerpilih.length
@@ -774,82 +814,22 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   ),
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(15),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          spreadRadius: 1,
-                          blurRadius: 5,
-                          offset: const Offset(0, -1),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildNavItem(
-                          Icons.home_outlined,
-                          'Beranda',
-                          _selectedIndex == 0,
-                        ),
-                        _buildNavItem(
-                          Icons.confirmation_number_outlined,
-                          'Tiket Saya',
-                          _selectedIndex == 1,
-                        ),
-                        _buildNavItem(
-                          Icons.local_offer_outlined,
-                          'Promo',
-                          _selectedIndex == 2,
-                        ),
-                        _buildNavItem(
-                          Icons.person_outline,
-                          'Akun',
-                          _selectedIndex == 3,
-                        ),
-                      ],
-                    ),
-                  ),
+                  const Expanded(
+                    child: SizedBox(),
+                  ), // Untuk mengisi sisa ruang jika konten sedikit
                 ],
               ),
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildNavItem(IconData icon, String label, bool isActive) {
-    return GestureDetector(
-      onTap: () {
-        if (label == 'Beranda')
-          _onItemTapped(0);
-        else if (label == 'Tiket Saya')
-          _onItemTapped(1);
-        else if (label == 'Promo')
-          _onItemTapped(2);
-        else if (label == 'Akun')
-          _onItemTapped(3);
-      },
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: isActive ? mainBlue : Colors.grey, size: 24),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              color: isActive ? mainBlue : Colors.grey,
-              fontSize: 12,
-              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
-        ],
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: SharedBottomNavBar(
+          // Menggunakan widget SharedBottomNavBar
+          currentIndex: _currentIndex,
+          onItemTapped: _handleBottomNavTapped,
+        ),
       ),
     );
   }
