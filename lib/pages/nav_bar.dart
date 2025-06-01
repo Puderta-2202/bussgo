@@ -19,7 +19,6 @@ class SharedBottomNavBar extends StatelessWidget {
   ) {
     bool isActive = currentIndex == itemIndex;
     // Dapatkan tema teks default untuk fallback jika diperlukan
-    TextTheme textTheme = Theme.of(context).textTheme;
 
     return Expanded(
       child: GestureDetector(

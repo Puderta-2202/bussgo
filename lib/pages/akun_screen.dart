@@ -4,6 +4,8 @@ import 'tiket_saya.dart';
 import 'app_color.dart';
 import 'nav_bar.dart';
 import 'loginscreen.dart';
+import 'package:bussgo/model/app_user.dart';
+import 'package:bussgo/model/user_database.dart';
 
 class AkunScreen extends StatefulWidget {
   const AkunScreen({Key? key}) : super(key: key);
@@ -43,27 +45,32 @@ class _AkunScreenState extends State<AkunScreen> {
   }
 
   void _logoutUser() {
-    // --- AWAL LOGIKA LOGOUT ---
-    // Di aplikasi nyata, Anda akan melakukan:
-    // 1. Menghapus token sesi pengguna.
-    // 2. Membersihkan data pengguna yang disimpan secara lokal.
-    // 3. Mereset state global (misalnya, saldo BusPay, daftar tiket).
+    UserDatabase.logoutUser(); // <-- PANGGIL LOGOUT DARI SERVICE
 
-    // Contoh simulasi reset state (opsional untuk sekarang, tapi penting untuk aplikasi nyata):
-    // TicketService.clearAllTickets(); // Menghapus semua tiket yang tersimpan di service
-    // HomeScreenState.updateAndFormatBusPayBalance(0.0, stateSetter: null); // Mereset saldo BusPay (jika Anda ingin saldo jadi 0)
-    // Atau panggil fungsi fetch ulang saldo saat login berikutnya.
+    // Contoh simulasi reset state lain jika diperlukan:
+    // TicketService.clearAllTickets();
+    // HomeScreenState.updateAndFormatBusPayBalance(0.0, stateSetter: null); // Mungkin perlu cara lain untuk refresh HomeScreen
 
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (context) => const LoginScreen()),
       (Route<dynamic> route) => false,
     );
-    // --- AKHIR LOGIKA LOGOUT ---
   }
 
   @override
   Widget build(BuildContext context) {
+    // Ambil data pengguna yang sedang login
+    final AppUser? currentUser = UserDatabase.currentUser;
+    String? displayName = "Pengguna"; // Default jika tidak ada info
+    if (currentUser != null) {
+      // Prioritaskan namaLengkap, jika tidak ada, gunakan username
+      displayName =
+          currentUser.namaLengkap!.isNotEmpty
+              ? currentUser.namaLengkap
+              : currentUser.username;
+    }
+
     return Scaffold(
       backgroundColor: screenBgLightBlue,
       appBar: AppBar(
@@ -89,7 +96,6 @@ class _AkunScreenState extends State<AkunScreen> {
         padding: const EdgeInsets.symmetric(vertical: 20.0),
         children: [
           Container(
-            /* ... Info Akun Pengguna ... */
             margin: const EdgeInsets.symmetric(horizontal: 20.0),
             padding: const EdgeInsets.all(20.0),
             decoration: BoxDecoration(
@@ -109,13 +115,15 @@ class _AkunScreenState extends State<AkunScreen> {
                   style: TextStyle(fontSize: 14, color: Colors.grey[700]),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  "Hai Lord Abdi",
-                  style: TextStyle(
+                Text(
+                  // Tampilkan nama pengguna yang login
+                  "Hai $displayName",
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF0D47A1),
                   ),
+                  textAlign: TextAlign.center,
                 ),
               ],
             ),
