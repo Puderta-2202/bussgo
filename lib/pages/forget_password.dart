@@ -149,7 +149,7 @@ class _ForgetPasswordScreenState extends State<ForgetPasswordScreen> {
                   Text(
                     _verifiedUser == null
                         ? 'Masukkan Email dan No Handphone Anda untuk verifikasi.'
-                        : 'Masukkan kata sandi baru untuk ${_verifiedUser!.namaLengkap!.isNotEmpty ? _verifiedUser!.namaLengkap : _verifiedUser!.username}.',
+                        : 'Masukkan kata sandi baru untuk ${_verifiedUser!.namaLengkap.isNotEmpty ? _verifiedUser!.namaLengkap : _verifiedUser!.username}.',
                     style: TextStyle(
                       color: const Color.fromARGB(255, 0, 0, 0),
                       fontSize: size.width * 0.04,
