@@ -1,10 +1,6 @@
-// File: lib/pages/pembayaran.dart (atau path yang sesuai dengan file Anda)
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-
-// GANTI 'NAMA_PAKET_ANDA' dengan nama paket aplikasi Anda di semua baris impor package
 import 'perjalanan_screen.dart';
 import 'jadwalkeberangkatan.dart' show JadwalKeberangkatanModel;
 import 'home_screen.dart';

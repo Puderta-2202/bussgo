@@ -70,7 +70,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Login berhasil! Selamat datang ${user.namaLengkap!.isNotEmpty ? user.namaLengkap : user.username}',
+              'Login berhasil! Selamat datang ${user.namaLengkap.isNotEmpty ? user.namaLengkap : user.username}',
             ),
           ),
         );

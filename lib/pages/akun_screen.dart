@@ -4,6 +4,8 @@ import 'tiket_saya.dart';
 import 'app_color.dart';
 import 'nav_bar.dart';
 import 'loginscreen.dart';
+import 'change_sandi.dart';
+import 'data_diri.dart';
 import 'package:bussgo/model/app_user.dart';
 import 'package:bussgo/model/user_database.dart';
 
@@ -66,7 +68,7 @@ class _AkunScreenState extends State<AkunScreen> {
     if (currentUser != null) {
       // Prioritaskan namaLengkap, jika tidak ada, gunakan username
       displayName =
-          currentUser.namaLengkap!.isNotEmpty
+          currentUser.namaLengkap.isNotEmpty
               ? currentUser.namaLengkap
               : currentUser.username;
     }
@@ -146,20 +148,22 @@ class _AkunScreenState extends State<AkunScreen> {
             context,
             title: "Data Diri",
             onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Halaman Data Diri belum tersedia.'),
-                ),
+              // --- AWAL MODIFIKASI NAVIGASI ---
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const DataDiriScreen()),
               );
+              // --- AKHIR MODIFIKASI NAVIGASI ---
             },
           ),
           _buildAccountOptionItem(
             context,
             title: "Ganti Kata Sandi",
             onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Fitur Ganti Kata Sandi belum tersedia.'),
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const GantiSandiScreen(),
                 ),
               );
             },
