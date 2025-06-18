@@ -1,57 +1,32 @@
+import 'package:bussgo/models/tiket_api_model.dart';
+import 'package:bussgo/services/tiket_service_api.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'home_screen.dart';
 import 'akun_screen.dart';
 import 'app_color.dart';
 import 'nav_bar.dart';
-import 'tiket_service.dart';
-
-// --- MODEL TIKET (Definisi tetap sama) ---
-class Tiket {
-  final String id;
-  final String jenisTiket;
-  final String tanggalKeberangkatan;
-  final String waktuKeberangkatan;
-  final String kotaAsal;
-  final String kotaTujuan;
-  final String namaBus;
-  final String nomorKursi;
-  final String harga;
-
-  Tiket({
-    required this.id,
-    this.jenisTiket = 'Tiket Reguler',
-    required this.tanggalKeberangkatan,
-    required this.waktuKeberangkatan,
-    required this.kotaAsal,
-    required this.kotaTujuan,
-    this.namaBus = "Bus GO Express",
-    this.nomorKursi = "Belum Dipilih",
-    this.harga = "N/A",
-  });
-}
-// --- AKHIR MODEL TIKET ---
 
 class TiketSayaPage extends StatefulWidget {
-  // Hapus parameter tiketDibeli, karena kita akan load dari service
-  const TiketSayaPage({Key? key, required}) : super(key: key);
+  const TiketSayaPage({Key? key}) : super(key: key);
 
   @override
   State<TiketSayaPage> createState() => _TiketSayaPageState();
 }
 
 class _TiketSayaPageState extends State<TiketSayaPage> {
-  final int _currentIndex = 1; // Index untuk halaman Tiket Saya
-  List<Tiket> _daftarTiketDibeli = []; // List untuk menampung tiket
+  final int _currentIndex = 1;
+  late Future<List<TiketFromApi>> _futureTiket;
 
   @override
   void initState() {
     super.initState();
-    _loadPurchasedTickets();
+    _loadTickets();
   }
 
-  void _loadPurchasedTickets() {
+  void _loadTickets() {
     setState(() {
-      _daftarTiketDibeli = TicketService.getPurchasedTickets();
+      _futureTiket = TiketServiceApi.getMyTickets(); // Memanggil service API
     });
   }
 
@@ -65,19 +40,16 @@ class _TiketSayaPageState extends State<TiketSayaPage> {
           (route) => false,
         );
         break;
-      case 1:
-        break; // Sudah di halaman ini
-      case 2:
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Halaman Promo belum tersedia.')),
-        );
-        break;
       case 3:
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const AkunScreen()),
         );
         break;
+      default:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Halaman belum tersedia.')),
+        );
     }
   }
 
@@ -96,39 +68,25 @@ class _TiketSayaPageState extends State<TiketSayaPage> {
           ),
         ),
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () {
-            if (Navigator.canPop(context)) {
-              Navigator.pop(context);
-            } else {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const HomeScreen()),
+        automaticallyImplyLeading: false,
+      ),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          _loadTickets();
+        },
+        child: FutureBuilder<List<TiketFromApi>>(
+          future: _futureTiket,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              return Center(
+                child: Text('Gagal memuat tiket.\n${snapshot.error}'),
               );
             }
-          },
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.receipt_long_outlined, color: Colors.white),
-            onPressed: () {
-              if (_daftarTiketDibeli.isNotEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Menampilkan semua detail tiket...')),
-                );
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Tidak ada tiket untuk ditampilkan.')),
-                );
-              }
-            },
-          ),
-        ],
-      ),
-      body:
-          _daftarTiketDibeli.isEmpty
-              ? Center(
+            if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -143,15 +101,14 @@ class _TiketSayaPageState extends State<TiketSayaPage> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: mainBlue,
                       ),
-                      onPressed: () {
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const HomeScreen(),
+                      onPressed:
+                          () => Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const HomeScreen(),
+                            ),
+                            (route) => false,
                           ),
-                          (route) => false,
-                        );
-                      },
                       child: const Text(
                         'Cari Tiket Sekarang',
                         style: TextStyle(color: Colors.white),
@@ -159,173 +116,106 @@ class _TiketSayaPageState extends State<TiketSayaPage> {
                     ),
                   ],
                 ),
-              )
-              : ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: _daftarTiketDibeli.length,
-                itemBuilder: (context, index) {
-                  final tiket = _daftarTiketDibeli[index];
-                  return Card(
-                    // Menggunakan Card untuk setiap tiket agar lebih rapi
-                    elevation: 2.0,
-                    margin: const EdgeInsets.only(bottom: 16.0),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                tiket.jenisTiket,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                  color: mainBlue,
-                                ),
-                              ),
-                              ElevatedButton(
-                                onPressed: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        'Menampilkan detail tiket: ${tiket.id}',
-                                      ),
-                                    ),
-                                  );
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.orangeAccent,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 8,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                                child: const Text(
-                                  'Lihat E-Tiket',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const Divider(height: 24, thickness: 1),
-                          _buildTicketInfoRow(
-                            Icons.calendar_today_outlined,
-                            "Tanggal",
-                            tiket.tanggalKeberangkatan,
-                          ),
-                          _buildTicketInfoRow(
-                            Icons.access_time_outlined,
-                            "Waktu",
-                            tiket.waktuKeberangkatan,
-                          ),
-                          _buildTicketInfoRow(
-                            Icons.bus_alert_outlined,
-                            "Armada",
-                            tiket.namaBus,
-                          ),
-                          _buildTicketInfoRow(
-                            Icons.event_seat_outlined,
-                            "Kursi",
-                            tiket.nomorKursi,
-                          ),
-                          _buildTicketInfoRow(
-                            Icons.confirmation_number_outlined,
-                            "ID Booking",
-                            tiket.id,
-                          ),
-                          const SizedBox(height: 15),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      "Dari",
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                    Text(
-                                      tiket.kotaAsal,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8.0,
-                                ),
-                                child: Icon(
-                                  Icons.arrow_forward_rounded,
-                                  size: 24,
-                                  color: mainBlue,
-                                ),
-                              ),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    const Text(
-                                      "Ke",
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                    Text(
-                                      tiket.kotaTujuan,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                      textAlign: TextAlign.end,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          // const Spacer(), // Tidak perlu spacer di dalam item ListView
-                          const SizedBox(height: 10),
-                          Center(
-                            child: Text(
-                              "ID: ${tiket.id}",
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.grey[500],
+              );
+            }
+
+            final daftarTiket = snapshot.data!;
+            return ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: daftarTiket.length,
+              itemBuilder: (context, index) {
+                final tiket = daftarTiket[index];
+                final jadwal = tiket.jadwalKeberangkatan;
+                final bus = jadwal['bus'];
+                final tanggal = DateFormat(
+                  'EEEE, dd MMMM yyyy',
+                  'id_ID',
+                ).format(DateTime.parse(jadwal['tanggal_berangkat']));
+                final waktu =
+                    "${jadwal['jam_berangkat']} - ${jadwal['jam_sampai']}";
+
+                return Card(
+                  elevation: 2.0,
+                  margin: const EdgeInsets.only(bottom: 16.0),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              "Bus: ${bus?['nama'] ?? 'N/A'}",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: mainBlue,
                               ),
                             ),
-                          ),
-                        ],
-                      ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color:
+                                    tiket.statusPembayaran == 'berhasil'
+                                        ? Colors.green.withOpacity(0.1)
+                                        : Colors.orange.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                tiket.statusPembayaran
+                                    .replaceAll('_', ' ')
+                                    .toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color:
+                                      tiket.statusPembayaran == 'berhasil'
+                                          ? Colors.green.shade800
+                                          : Colors.orange.shade800,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Divider(height: 24, thickness: 1),
+                        _buildTicketInfoRow(
+                          Icons.calendar_today_outlined,
+                          "Tanggal",
+                          tanggal,
+                        ),
+                        _buildTicketInfoRow(
+                          Icons.access_time_outlined,
+                          "Waktu",
+                          waktu,
+                        ),
+                        _buildTicketInfoRow(
+                          Icons.event_seat_outlined,
+                          "Kursi",
+                          tiket.nomorKursi.isNotEmpty
+                              ? tiket.nomorKursi.join(', ')
+                              : '-',
+                        ),
+                        _buildTicketInfoRow(
+                          Icons.confirmation_number_outlined,
+                          "ID Booking",
+                          tiket.kodeBooking,
+                        ),
+                      ],
                     ),
-                  );
-                },
-              ),
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      ),
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.all(16.0),
         child: SharedBottomNavBar(

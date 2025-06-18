@@ -1,27 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'pembayaran.dart'; // Ganti 'bussgo'
-import 'jadwalkeberangkatan.dart'
-    show JadwalKeberangkatanModel; // Ganti 'bussgo'
-import 'app_color.dart'; // <-- IMPOR WARNA BARU, GANTI 'bussgo'
+import 'package:bussgo/services/pemesanan_service.dart';
+import 'pembayaran.dart';
+// import 'jadwalkeberangkatan.dart';
+import 'app_color.dart';
+import 'package:bussgo/enum/metode_pembayaran.dart';
+import 'package:bussgo/models/jadwal_from_api.dart';
 
-// HAPUS DEFINISI WARNA LOKAL DARI SINI
-// const Color mainBlue = Color(0xFF1A9AEB);
-// ... warna lain ...
-
-// Enum untuk metode pembayaran (bisa tetap di sini atau pindah ke file model/enum)
-enum MetodePembayaran { none, busPay, qris, mBanking }
-
-class PembayaranScreen extends StatefulWidget {
-  // ... (Konstruktor dan field tidak berubah dari jawaban sebelumnya, sudah menerima semua detail perjalanan)
+class PilihPembayaranScreen extends StatefulWidget {
+  // --- PASTIKAN KONSTRUKTOR MENERIMA SEMUA DATA INI ---
   final int totalHarga;
   final String kotaAsal;
   final String kotaTujuan;
   final DateTime tanggalKeberangkatan;
-  final JadwalKeberangkatanModel jadwalTerpilih;
+  final JadwalFromApi jadwalTerpilih;
   final int jumlahPenumpang;
+  final List<String> kursiPilihan;
+  final Map<String, dynamic> currentUser;
 
-  const PembayaranScreen({
+  const PilihPembayaranScreen({
     Key? key,
     required this.totalHarga,
     required this.kotaAsal,
@@ -29,101 +26,104 @@ class PembayaranScreen extends StatefulWidget {
     required this.tanggalKeberangkatan,
     required this.jadwalTerpilih,
     required this.jumlahPenumpang,
+    required this.kursiPilihan,
+    required this.currentUser,
   }) : super(key: key);
 
   @override
-  State<PembayaranScreen> createState() => _PembayaranScreenState();
+  State<PilihPembayaranScreen> createState() => _PilihPembayaranScreenState();
 }
 
-class _PembayaranScreenState extends State<PembayaranScreen> {
-  // ... (Isi state dan fungsi tidak berubah, warna akan diambil dari app_colors.dart)
-  late DateTime _batasWaktuPembayaran;
+class _PilihPembayaranScreenState extends State<PilihPembayaranScreen> {
   MetodePembayaran _selectedPaymentMethod = MetodePembayaran.none;
-  final TextEditingController _promoController = TextEditingController();
+  bool _isLoading = false;
+  // Kita tidak perlu state _currentUser lagi karena sudah diterima dari widget
 
   @override
   void initState() {
-    /* ... implementasi tetap ... */
     super.initState();
-    _batasWaktuPembayaran = DateTime.now().add(const Duration(minutes: 30));
+    // Tidak perlu lagi fetch user karena data sudah diterima
   }
 
   void _selectPaymentMethod(MetodePembayaran method) {
-    /* ... implementasi tetap ... */
     setState(() {
       _selectedPaymentMethod = method;
     });
   }
 
-  void _lanjutkanPembayaran() {
-    /* ... implementasi tetap, navigasi ke KonfirmasiPembayaranScreen ... */
+  void _prosesPemesanan() async {
     if (_selectedPaymentMethod == MetodePembayaran.none) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Silakan pilih metode pembayaran terlebih dahulu.'),
-        ),
+        const SnackBar(content: Text('Silakan pilih metode pembayaran.')),
       );
       return;
     }
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder:
-            (context) => KonfirmasiPembayaranScreen(
-              // Pastikan NamaKelas KonfirmasiPembayaranScreen benar
-              metodePembayaran: _selectedPaymentMethod,
-              totalHarga: widget.totalHarga,
-              batasWaktuPembayaran: _batasWaktuPembayaran,
-              kotaAsal: widget.kotaAsal,
-              kotaTujuan: widget.kotaTujuan,
-              tanggalKeberangkatan: widget.tanggalKeberangkatan,
-              jadwalTerpilih: widget.jadwalTerpilih,
-              jumlahPenumpang: widget.jumlahPenumpang,
-            ),
-      ),
-    );
-  }
 
-  @override
-  void dispose() {
-    /* ... implementasi tetap ... */
-    _promoController.dispose();
-    super.dispose();
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final pemesananData = await PemesananService.buatPemesananAwal(
+        keberangkatanId: widget.jadwalTerpilih.id,
+        jumlahTiket: widget.jumlahPenumpang,
+        nomorKursi: widget.kursiPilihan,
+      );
+
+      if (!mounted) return;
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder:
+              (context) => KonfirmasiPembayaranScreen(
+                metodePembayaran: _selectedPaymentMethod,
+                pemesananId: pemesananData['id_pemesanan'],
+                totalHarga: pemesananData['total_harga'],
+                kodeBooking: pemesananData['kode_booking'],
+                saldoAwal:
+                    double.tryParse(
+                      widget.currentUser['saldo']?.toString() ?? '0',
+                    ) ??
+                    0,
+              ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Warna sekarang dari app_colors.dart
-    // ... (Sisa build method, semua penggunaan mainBlue, dll. akan merujuk ke app_colors.dart)
-    String formattedBatasWaktu = DateFormat(
-      'EEEE, dd MMMM finalList HH:mm:ss',
-      'id_ID',
-    ).format(_batasWaktuPembayaran);
     return Scaffold(
       backgroundColor: screenBgLightBlue,
       appBar: AppBar(
         backgroundColor: mainBlue,
-        elevation: 0,
         title: const Text(
-          'Pembayaran',
+          'Pilih Pembayaran',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.close, color: Colors.white),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-        ],
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildPaymentDeadlineCard(formattedBatasWaktu),
-            const SizedBox(height: 16),
-            _buildPromoCard(),
+            _buildInfoRingkas(),
             const SizedBox(height: 24),
             Text(
               'METODE PEMBAYARAN',
@@ -131,19 +131,18 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
                 color: Colors.grey[700],
-                letterSpacing: 0.5,
               ),
             ),
             const SizedBox(height: 12),
             _buildPaymentMethodOption(
-              icon: Icons.directions_bus_filled,
-              label: 'Bus Pay',
+              icon: Icons.account_balance_wallet_outlined,
+              label: 'BusPay',
               method: MetodePembayaran.busPay,
             ),
             const SizedBox(height: 12),
             _buildPaymentMethodOption(
               icon: Icons.qr_code_scanner,
-              label: 'Qris',
+              label: 'QRIS',
               method: MetodePembayaran.qris,
             ),
             const SizedBox(height: 12),
@@ -154,22 +153,29 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
             ),
             const SizedBox(height: 40),
             ElevatedButton(
-              onPressed: _lanjutkanPembayaran,
+              onPressed: _isLoading ? null : _prosesPemesanan,
               style: ElevatedButton.styleFrom(
                 backgroundColor: mainBlue,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                textStyle: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
               ),
-              child: Text(
-                'Bayar IDR ${NumberFormat.currency(locale: 'id_ID', symbol: '', decimalDigits: 0).format(widget.totalHarga)}',
-                style: const TextStyle(color: Colors.white),
-              ),
+              child:
+                  _isLoading
+                      ? const SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(color: Colors.white),
+                      )
+                      : Text(
+                        'Lanjutkan Pembayaran (Rp ${NumberFormat.decimalPattern('id').format(widget.totalHarga)})',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
             ),
           ],
         ),
@@ -177,81 +183,59 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
     );
   }
 
-  Widget _buildPaymentDeadlineCard(String formattedBatasWaktu) {
-    /* ... implementasi tetap, warna dari app_colors.dart ... */
+  Widget _buildInfoRingkas() {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: paymentDeadlineCardColor,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.alarm, color: Colors.blueGrey[700], size: 28),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Batas waktu pembayaran',
-                  style: TextStyle(fontSize: 13, color: Colors.blueGrey[700]),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  formattedBatasWaktu,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blueGrey[900],
-                  ),
-                ),
-              ],
-            ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildPromoCard() {
-    /* ... implementasi tetap, warna dari app_colors.dart ... */
-    return Material(
-      color: promoCardColor,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Fitur kode promo belum diimplementasi.'),
-            ),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-          child: Row(
+      child: Column(
+        children: [
+          Row(
             children: [
-              Icon(Icons.sell_outlined, color: Colors.blueGrey[700], size: 26),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Masukkan kode promo/voucher',
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Colors.blueGrey[800],
-                    fontWeight: FontWeight.w500,
-                  ),
+              Text(
+                widget.kotaAsal,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              Icon(
-                Icons.arrow_forward_ios,
-                color: Colors.blueGrey[600],
-                size: 16,
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8.0),
+                child: Icon(Icons.arrow_forward, size: 18, color: Colors.grey),
+              ),
+              Text(
+                widget.kotaTujuan,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
-        ),
+          const Divider(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${widget.jumlahPenumpang} Penumpang',
+                style: TextStyle(color: Colors.grey[700]),
+              ),
+              Text(
+                widget.kursiPilihan.join(', '),
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -261,10 +245,9 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
     required String label,
     required MetodePembayaran method,
   }) {
-    /* ... implementasi tetap, warna dari app_colors.dart ... */
     bool isSelected = _selectedPaymentMethod == method;
     return Material(
-      color: isSelected ? mainBlue.withOpacity(0.2) : cardBgColor,
+      color: isSelected ? mainBlue.withOpacity(0.15) : cardBgColor,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: () => _selectPaymentMethod(method),
@@ -290,7 +273,7 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                 ),
               ),
               if (isSelected)
-                Icon(Icons.check_circle, color: mainBlue, size: 24),
+                const Icon(Icons.check_circle, color: mainBlue, size: 24),
             ],
           ),
         ),

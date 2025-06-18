@@ -1,18 +1,18 @@
+import 'package:bussgo/services/jadwal_service.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'jadwalkeberangkatan.dart' show JadwalKeberangkatanModel;
+import 'package:bussgo/models/jadwal_from_api.dart';
+// import 'jadwalkeberangkatan.dart';
 import 'perjalanan_screen.dart';
 import 'app_color.dart';
-// const Color mainBlue = Color(0xFF1A9AEB);
-// const Color cardLightBlue = Color(0xFFD1E9FA);
-// const Color screenBgLightBlue = Color(0xFFE3F2FD);
 
 class DetailPerjalananScreen extends StatefulWidget {
   final String kotaAsal;
   final String kotaTujuan;
   final DateTime tanggalKeberangkatan;
-  final JadwalKeberangkatanModel jadwalTerpilih;
+  final JadwalFromApi jadwalTerpilih;
   final int jumlahPenumpang;
+  final Map<String, dynamic> currentUser;
 
   const DetailPerjalananScreen({
     Key? key,
@@ -21,6 +21,7 @@ class DetailPerjalananScreen extends StatefulWidget {
     required this.tanggalKeberangkatan,
     required this.jadwalTerpilih,
     required this.jumlahPenumpang,
+    required this.currentUser,
   }) : super(key: key);
 
   @override
@@ -28,19 +29,231 @@ class DetailPerjalananScreen extends StatefulWidget {
 }
 
 class _DetailPerjalananScreenState extends State<DetailPerjalananScreen> {
+  List<String> _kursiPilihan = [];
+  bool _isLoadingKursi = false;
   bool _termsAccepted = false;
 
-  // Helper untuk konversi harga "100K" -> 100000
-  int _parseHarga(String hargaString) {
-    String numericString = hargaString.replaceAll(
-      RegExp(r'K', caseSensitive: false),
-      '000',
+  Future<void> _showSeatPickerDialog() async {
+    setState(() {
+      _isLoadingKursi = true;
+    });
+
+    try {
+      final kursiTerisi = await JadwalService.getKursiTerisi(
+        widget.jadwalTerpilih.id,
+      );
+      if (!mounted) return;
+      setState(() {
+        _isLoadingKursi = false;
+      });
+
+      List<String> tempSelectedSeats = List.from(_kursiPilihan);
+      final result = await showDialog<List<String>>(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return StatefulBuilder(
+            builder: (context, setDialogState) {
+              Widget buildSeat(String label, {bool isDriver = false}) {
+                final bool isTaken = kursiTerisi.contains(label);
+                final bool isSelected = tempSelectedSeats.contains(label);
+                Color seatColor =
+                    isDriver
+                        ? Colors.black54
+                        : (isTaken
+                            ? Colors.grey.shade500
+                            : (isSelected
+                                ? selectedSeatColor
+                                : availableSeatColor));
+
+                return GestureDetector(
+                  onTap:
+                      isTaken || isDriver
+                          ? null
+                          : () {
+                            setDialogState(() {
+                              if (isSelected) {
+                                tempSelectedSeats.remove(label);
+                              } else {
+                                if (tempSelectedSeats.length <
+                                    widget.jumlahPenumpang) {
+                                  tempSelectedSeats.add(label);
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Anda hanya bisa memilih ${widget.jumlahPenumpang} kursi.',
+                                      ),
+                                      duration: const Duration(seconds: 1),
+                                    ),
+                                  );
+                                }
+                              }
+                            });
+                          },
+                  child: Container(
+                    width: 45,
+                    height: 40,
+                    margin: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: seatColor,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.black26),
+                    ),
+                    child: Center(
+                      child:
+                          isDriver
+                              ? const Icon(
+                                Icons.directions_bus,
+                                color: Colors.white,
+                                size: 20,
+                              )
+                              : Text(
+                                label,
+                                style: TextStyle(
+                                  color:
+                                      isTaken || isSelected
+                                          ? Colors.white
+                                          : Colors.black87,
+                                  fontWeight:
+                                      isSelected
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                ),
+                              ),
+                    ),
+                  ),
+                );
+              }
+
+              List<Widget> seatLayoutWidgets = [
+                Padding(
+                  padding: const EdgeInsets.only(
+                    bottom: 16.0,
+                    left: 8.0,
+                    right: 8.0,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [buildSeat("S", isDriver: true)],
+                  ),
+                ),
+              ];
+
+              int totalKursi =
+                  int.tryParse(
+                    widget.jadwalTerpilih.bus['kapasitas_kursi']?.toString() ??
+                        '0',
+                  ) ??
+                  0;
+              int seatCounter = 1;
+              while (seatCounter <= totalKursi) {
+                seatLayoutWidgets.add(
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        if (seatCounter <= totalKursi)
+                          buildSeat((seatCounter++).toString())
+                        else
+                          const SizedBox(width: 49),
+                        if (seatCounter <= totalKursi)
+                          buildSeat((seatCounter++).toString())
+                        else
+                          const SizedBox(width: 49),
+                        const SizedBox(width: 30), // Lorong Bus
+                        if (seatCounter <= totalKursi)
+                          buildSeat((seatCounter++).toString()),
+                        if (seatCounter <= totalKursi)
+                          buildSeat((seatCounter++).toString())
+                        else
+                          const SizedBox(width: 49),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              return AlertDialog(
+                title: Center(
+                  child: Text(
+                    'Pilih Kursi (${tempSelectedSeats.length}/${widget.jumlahPenumpang})',
+                  ),
+                ),
+                content: SizedBox(
+                  width: double.maxFinite,
+                  child: SingleChildScrollView(
+                    child: Column(children: seatLayoutWidgets),
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Batal'),
+                  ),
+                  ElevatedButton(
+                    onPressed:
+                        () => Navigator.of(context).pop(tempSelectedSeats),
+                    child: const Text('Pilih'),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+      if (result != null) {
+        setState(() {
+          _kursiPilihan = result;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingKursi = false;
+        });
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
+    }
+  }
+
+  // Di dalam kelas _DetailPerjalananScreenState
+
+  void _lanjutKePilihPembayaran() {
+    if (_kursiPilihan.length != widget.jumlahPenumpang) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Harap pilih kursi sebanyak ${widget.jumlahPenumpang} buah.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    // Hitung total harga di sini
+    int totalHarga = widget.jadwalTerpilih.harga * widget.jumlahPenumpang;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (context) => PilihPembayaranScreen(
+              // --- PASTIKAN SEMUA PARAMETER INI DIKIRIM ---
+              totalHarga: totalHarga,
+              kotaAsal: widget.kotaAsal,
+              kotaTujuan: widget.kotaTujuan,
+              tanggalKeberangkatan: widget.tanggalKeberangkatan,
+              jadwalTerpilih: widget.jadwalTerpilih,
+              jumlahPenumpang: widget.jumlahPenumpang,
+              kursiPilihan: _kursiPilihan, // Ini penting untuk dikirim
+              currentUser: widget.currentUser, // Ini juga penting
+            ),
+      ),
     );
-    numericString = numericString.replaceAll(
-      RegExp(r'[^0-9]'),
-      '',
-    ); // Hapus karakter non-numerik lain
-    return int.tryParse(numericString) ?? 0;
   }
 
   @override
@@ -50,20 +263,13 @@ class _DetailPerjalananScreenState extends State<DetailPerjalananScreen> {
       'id_ID',
     ).format(widget.tanggalKeberangkatan);
     String jamPerjalanan =
-        "${widget.jadwalTerpilih.waktuBerangkat} - ${widget.jadwalTerpilih.waktuSampai}";
-
-    int hargaPerTiket = _parseHarga(widget.jadwalTerpilih.harga);
-    int totalHarga = hargaPerTiket * widget.jumlahPenumpang;
+        "${widget.jadwalTerpilih.jamBerangkat} - ${widget.jadwalTerpilih.jamSampai}";
+    int totalHarga = widget.jadwalTerpilih.harga * widget.jumlahPenumpang;
     String formattedTotalHarga = NumberFormat.currency(
       locale: 'id_ID',
       symbol: 'IDR ',
       decimalDigits: 0,
     ).format(totalHarga);
-    String formattedHargaPerTiket = NumberFormat.currency(
-      locale: 'id_ID',
-      symbol: '',
-      decimalDigits: 0,
-    ).format(hargaPerTiket);
 
     return Scaffold(
       backgroundColor: screenBgLightBlue,
@@ -74,7 +280,6 @@ class _DetailPerjalananScreenState extends State<DetailPerjalananScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
@@ -103,12 +308,10 @@ class _DetailPerjalananScreenState extends State<DetailPerjalananScreen> {
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF0D47A1), // Biru lebih gelap untuk judul
+                color: Color(0xFF0D47A1),
               ),
             ),
             const SizedBox(height: 16),
-
-            // Card Detail Perjalanan
             _buildDetailCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -126,43 +329,16 @@ class _DetailPerjalananScreenState extends State<DetailPerjalananScreen> {
                     jamPerjalanan,
                     style: const TextStyle(fontSize: 15, color: Colors.black54),
                   ),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        widget.kotaAsal,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const Icon(
-                        Icons.arrow_forward,
-                        color: Colors.black54,
-                        size: 18,
-                      ),
-                      Text(
-                        widget.kotaTujuan,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    ],
-                  ),
                 ],
               ),
             ),
             const SizedBox(height: 20),
-
-            // Card Info Kontak (Dummy)
             _buildDetailCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    "Kontak Info",
+                    "Info Kontak",
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -170,73 +346,57 @@ class _DetailPerjalananScreenState extends State<DetailPerjalananScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  _buildInfoRow("Nama", "Lord Abdi (Contoh)"),
-                  _buildInfoRow("Email", "lordabdi@example.com"),
-                  _buildInfoRow("No. Handphone", "0888-0923-xxxx"),
+                  _buildInfoRow(
+                    "Nama",
+                    widget.currentUser['nama_lengkap'] ?? '-',
+                  ),
+                  _buildInfoRow("Email", widget.currentUser['email'] ?? '-'),
+                  _buildInfoRow(
+                    "No. Handphone",
+                    widget.currentUser['no_handphone'] ?? '-',
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 20),
-
-            // Card Detail Harga
             _buildDetailCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "Detail Harga",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0D47A1),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        "Penumpang",
-                        style: TextStyle(fontSize: 15, color: Colors.black54),
-                      ),
-                      Text(
-                        "${widget.jumlahPenumpang} x $formattedHargaPerTiket",
-                        style: const TextStyle(
-                          fontSize: 15,
-                          color: Colors.black87,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Divider(height: 20, thickness: 0.5),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        "Total Harga",
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      Text(
-                        formattedTotalHarga,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: mainBlue,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(
+                  Icons.event_seat,
+                  color: mainBlue,
+                  size: 32,
+                ),
+                title: const Text(
+                  "Pilih Kursi",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                subtitle: Text(
+                  _kursiPilihan.isEmpty
+                      ? 'Anda belum memilih kursi'
+                      : 'Terpilih: ${_kursiPilihan.join(', ')}',
+                ),
+                trailing:
+                    _isLoadingKursi
+                        ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2.5),
+                        )
+                        : const Icon(Icons.arrow_forward_ios),
+                onTap: _isLoadingKursi ? null : _showSeatPickerDialog,
               ),
             ),
             const SizedBox(height: 20),
-
-            // Card Term and Condition & Tombol Pembayaran
+            _buildDetailCard(
+              child: _buildInfoRow(
+                "Total Harga",
+                formattedTotalHarga,
+                isBold: true,
+                valueColor: mainBlue,
+              ),
+            ),
+            const SizedBox(height: 20),
             _buildDetailCard(
               child: Column(
                 children: [
@@ -260,33 +420,10 @@ class _DetailPerjalananScreenState extends State<DetailPerjalananScreen> {
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed:
-                          _termsAccepted
-                              ? () {
-                                // Aksi ke halaman pembayaran - MODIFIKASI DI SINI
-                                int hargaPerTiket = _parseHarga(
-                                  widget.jadwalTerpilih.harga,
-                                ); // Pastikan _parseHarga ada
-                                int totalHarga =
-                                    hargaPerTiket * widget.jumlahPenumpang;
-
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder:
-                                        (context) => PembayaranScreen(
-                                          totalHarga: totalHarga,
-                                          kotaAsal: '',
-                                          kotaTujuan: '',
-                                          tanggalKeberangkatan:
-                                              widget.tanggalKeberangkatan,
-                                          jadwalTerpilih: widget.jadwalTerpilih,
-                                          jumlahPenumpang:
-                                              widget.jumlahPenumpang,
-                                          // orderId: "generate_atau_ambil_order_id_disini", // Contoh jika ada orderId
-                                        ),
-                                  ),
-                                );
-                              }
+                          (_termsAccepted &&
+                                  _kursiPilihan.length ==
+                                      widget.jumlahPenumpang)
+                              ? _lanjutKePilihPembayaran
                               : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: mainBlue,
@@ -316,21 +453,27 @@ class _DetailPerjalananScreenState extends State<DetailPerjalananScreen> {
 
   Widget _buildDetailCard({required Widget child}) {
     return Card(
-      elevation: 0, // Sesuai gambar, tidak ada shadow yang kuat
-      color: cardBgColor,
+      elevation: 2,
+      shadowColor: Colors.black12,
+      color: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
       child: Padding(padding: const EdgeInsets.all(16.0), child: child),
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
+  Widget _buildInfoRow(
+    String label,
+    String value, {
+    bool isBold = false,
+    Color? valueColor,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 110, // Lebar tetap untuk label
+            width: 110,
             child: Text(
               label,
               style: const TextStyle(fontSize: 14, color: Colors.black54),
@@ -343,10 +486,10 @@ class _DetailPerjalananScreenState extends State<DetailPerjalananScreen> {
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
+                fontWeight: isBold ? FontWeight.w600 : FontWeight.normal,
+                color: valueColor ?? Colors.black87,
               ),
             ),
           ),

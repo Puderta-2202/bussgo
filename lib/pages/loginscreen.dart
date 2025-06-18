@@ -1,49 +1,10 @@
+import 'package:bussgo/services/auth_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'home_screen.dart';
 import 'register_screen.dart';
 import 'forget_password.dart';
 import 'app_color.dart';
-import 'package:bussgo/model/app_user.dart';
-import 'package:bussgo/model/user_database.dart';
-
-// --- Model Pengguna Sederhana ---
-// class AppUser {
-//   final String username;
-//   final String password;
-//   // Anda bisa menambahkan field lain seperti email, namaLengkap, dll.
-
-//   AppUser({required this.username, required this.password});
-// }
-// // --- Akhir Model Pengguna ---
-
-// // --- Daftar Pengguna Terdaftar (Simulasi Database) ---
-// // Ini adalah list static tempat kita akan menyimpan pengguna yang mendaftar.
-// // Di aplikasi nyata, ini akan digantikan oleh database.
-// // Agar bisa diakses dari RegisterScreen, ini bisa dipindah ke file terpisah atau service.
-// // Untuk contoh ini, kita letakkan di sini dulu.
-// class UserDatabase {
-//   // Wrapper class agar lebih terorganisir
-//   static List<AppUser> registeredUsers = [
-//     // Anda bisa menambahkan beberapa pengguna default untuk testing jika mau
-//     AppUser(username: "user1", password: "password1"),
-//   ];
-
-//   static void addUser(AppUser user) {
-//     registeredUsers.add(user);
-//     print("User ditambahkan: ${user.username}"); // Untuk debug
-//   }
-
-//   static AppUser? findUser(String username, String password) {
-//     try {
-//       return registeredUsers.firstWhere(
-//         (user) => user.username == username && user.password == password,
-//       );
-//     } catch (e) {
-//       return null; // User tidak ditemukan
-//     }
-//   }
-// }
-// --- Akhir Daftar Pengguna ---
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -54,41 +15,61 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _usernameController = TextEditingController();
+  // Ganti _usernameController menjadi _emailController untuk sinkron dengan API
+  final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  bool _obscurePassword = true; // Untuk toggle visibilitas password
+  bool _obscurePassword = true;
+  bool _isLoading = false; // State untuk loading
 
-  void _performLogin() {
+  final _storage = const FlutterSecureStorage(); // Inisialisasi secure storage
+
+  void _performLogin() async {
     if (_formKey.currentState!.validate()) {
-      String username = _usernameController.text.trim();
-      String password = _passwordController.text.trim();
+      setState(() {
+        _isLoading = true; // Mulai loading
+      });
 
-      AppUser? user = UserDatabase.findUser(username, password);
+      try {
+        String email = _emailController.text.trim();
+        String password = _passwordController.text.trim();
 
-      if (user != null) {
-        UserDatabase.loginUser(user); // Set pengguna yang sedang login
+        // Panggil service API kita, bukan UserDatabase lagi
+        final response = await AuthService.login(email, password);
+
+        // Simpan token dengan aman
+        await _storage.write(
+          key: 'auth_token',
+          value: response['access_token'],
+        );
+
+        if (mounted) {
+          // Pastikan widget masih ada di tree
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Login berhasil!')));
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
+        }
+      } catch (e) {
+        // Tampilkan pesan error dari API atau koneksi
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Login berhasil! Selamat datang ${user.namaLengkap.isNotEmpty ? user.namaLengkap : user.username}',
-            ),
-          ),
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
         );
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Username atau password salah.')),
-        );
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false; // Hentikan loading
+          });
+        }
       }
     }
   }
 
   @override
   void dispose() {
-    _usernameController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -100,9 +81,8 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          Container(
-            color: mainBlue,
-          ), // Latar belakang utama dari app_colors.dart
+          // ... (UI Latar Belakang dan Gambar Anda tetap sama) ...
+          Container(color: mainBlue),
           SingleChildScrollView(
             child: ConstrainedBox(
               constraints: BoxConstraints(minHeight: size.height),
@@ -111,6 +91,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   key: _formKey,
                   child: Column(
                     children: [
+                      // ... (Stack Gambar Bus Anda tetap sama) ...
                       Stack(
                         children: [
                           Container(
@@ -118,9 +99,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             height: size.height * 0.35,
                             decoration: const BoxDecoration(
                               image: DecorationImage(
-                                image: AssetImage(
-                                  'assets/images/bis.jpg',
-                                ), // Pastikan aset ini ada
+                                image: AssetImage('assets/images/bis.jpg'),
                                 fit: BoxFit.cover,
                                 alignment: Alignment.bottomCenter,
                               ),
@@ -130,8 +109,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             bottom: -1,
                             child: CustomPaint(
                               size: Size(size.width, 40),
-                              painter:
-                                  BusContainerCurvePainter(), // Menggunakan mainBlue dari app_colors.dart
+                              painter: BusContainerCurvePainter(),
                             ),
                           ),
                         ],
@@ -155,18 +133,17 @@ class _LoginScreenState extends State<LoginScreen> {
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             Text(
-                              'Login', // Diubah dari 'Sign Up'
+                              'Login',
                               style: TextStyle(
                                 fontSize: size.width * 0.055,
                                 fontWeight: FontWeight.bold,
-                                fontFamily:
-                                    'Maname', // Pastikan font ini ada di pubspec.yaml
+                                fontFamily: 'Maname',
                                 color: Colors.black87,
                               ),
                             ),
                             SizedBox(height: size.height * 0.025),
+                            // --- PERUBAHAN PADA INPUT EMAIL ---
                             Container(
-                              // Username
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(30),
@@ -179,19 +156,22 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ],
                               ),
                               child: TextFormField(
-                                controller: _usernameController,
-                                keyboardType: TextInputType.text,
+                                controller:
+                                    _emailController, // Ganti controller
+                                keyboardType:
+                                    TextInputType
+                                        .emailAddress, // Ganti keyboard type
                                 decoration: InputDecoration(
-                                  hintText: 'Username',
+                                  hintText: 'Email', // Ganti hint text
                                   hintStyle: TextStyle(
                                     color: Colors.grey[400],
                                     fontSize: size.width * 0.035,
                                     fontFamily: 'Mandali',
-                                  ), // Pastikan font ini ada
-                                  prefixIcon: Icon(
-                                    Icons.person_outline,
-                                    color: Colors.grey[400],
                                   ),
+                                  prefixIcon: Icon(
+                                    Icons.email_outlined,
+                                    color: Colors.grey[400],
+                                  ), // Ganti ikon
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(30),
                                     borderSide: BorderSide.none,
@@ -202,15 +182,21 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                                 validator: (value) {
                                   if (value == null || value.isEmpty) {
-                                    return 'Username tidak boleh kosong';
+                                    return 'Email tidak boleh kosong';
+                                  }
+                                  if (!RegExp(
+                                    r'\S+@\S+\.\S+',
+                                  ).hasMatch(value)) {
+                                    // Validasi email sederhana
+                                    return 'Format email tidak valid';
                                   }
                                   return null;
                                 },
                               ),
                             ),
                             SizedBox(height: size.height * 0.015),
+                            // --- INPUT PASSWORD TETAP SAMA ---
                             Container(
-                              // Password
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(30),
@@ -237,7 +223,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                     color: Colors.grey[400],
                                   ),
                                   suffixIcon: IconButton(
-                                    // Tombol untuk show/hide password
                                     icon: Icon(
                                       _obscurePassword
                                           ? Icons.visibility_off_outlined
@@ -262,17 +247,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                   if (value == null || value.isEmpty) {
                                     return 'Password tidak boleh kosong';
                                   }
-                                  // Anda bisa menambahkan validasi panjang password jika perlu
-                                  // if (value.length < 6) {
-                                  //   return 'Password minimal 6 karakter';
-                                  // }
                                   return null;
                                 },
                               ),
                             ),
                             SizedBox(height: size.height * 0.025),
+                            // --- PERUBAHAN PADA TOMBOL LOGIN ---
                             Container(
-                              // Tombol Login
                               width: double.infinity,
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(30),
@@ -283,7 +264,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               ),
                               child: ElevatedButton(
-                                onPressed: _performLogin,
+                                onPressed:
+                                    _isLoading
+                                        ? null
+                                        : _performLogin, // Nonaktifkan tombol saat loading
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.transparent,
                                   shadowColor: Colors.transparent,
@@ -294,56 +278,43 @@ class _LoginScreenState extends State<LoginScreen> {
                                     borderRadius: BorderRadius.circular(30),
                                   ),
                                 ),
-                                child: Text(
-                                  'Login',
-                                  style: TextStyle(
-                                    fontSize: size.width * 0.04,
-                                    fontWeight: FontWeight.w500,
-                                    fontFamily: 'Maname',
-                                    color: Colors.white,
-                                  ),
-                                ),
+                                child:
+                                    _isLoading
+                                        ? const SizedBox(
+                                          // Tampilkan loading indicator
+                                          height: 20,
+                                          width: 20,
+                                          child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                            strokeWidth: 2.0,
+                                          ),
+                                        )
+                                        : Text(
+                                          // Tampilkan teks "Login"
+                                          'Login',
+                                          style: TextStyle(
+                                            fontSize: size.width * 0.04,
+                                            fontWeight: FontWeight.w500,
+                                            fontFamily: 'Maname',
+                                            color: Colors.white,
+                                          ),
+                                        ),
                               ),
                             ),
+                            // ... (Sisa UI Anda tetap sama) ...
                             SizedBox(height: size.height * 0.015),
                             Row(
-                              // Register & Forgot Password
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 GestureDetector(
-                                  onTap: () async {
-                                    final result = await Navigator.push(
+                                  onTap: () {
+                                    Navigator.push(
                                       context,
                                       MaterialPageRoute(
                                         builder:
                                             (context) => const RegisterScreen(),
                                       ),
                                     );
-                                    if (result is String &&
-                                        result.isNotEmpty &&
-                                        mounted) {
-                                      _usernameController.text =
-                                          result; // Isi field username dengan hasil dari RegisterScreen
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            'Registrasi berhasil untuk $result. Silakan login.',
-                                          ),
-                                        ),
-                                      );
-                                    } else if (result == true && mounted) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'Registrasi berhasil. Silakan login.',
-                                          ),
-                                        ),
-                                      );
-                                    }
                                   },
                                   child: Text(
                                     'Register',
@@ -402,6 +373,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ),
+          // ... (UI Bottom Wave Painter Anda tetap sama) ...
           Positioned(
             bottom: 0,
             left: 0,
@@ -417,7 +389,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-// CustomPainter untuk kurva di bawah gambar bis
+// ... (Kode CustomPainter Anda tetap sama) ...
 class BusContainerCurvePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
@@ -438,7 +410,6 @@ class BusContainerCurvePainter extends CustomPainter {
     path.lineTo(size.width, size.height);
     path.lineTo(0, size.height);
     path.close();
-
     canvas.drawPath(path, paint);
   }
 
@@ -453,7 +424,6 @@ class BottomWavePainter extends CustomPainter {
         Paint()
           ..color = const Color(0xFFB3E5FC)
           ..style = PaintingStyle.fill;
-
     final path = Path();
     path.moveTo(0, 0);
     path.quadraticBezierTo(
@@ -471,7 +441,6 @@ class BottomWavePainter extends CustomPainter {
     path.lineTo(size.width, size.height);
     path.lineTo(0, size.height);
     path.close();
-
     canvas.drawPath(path, paint);
   }
 

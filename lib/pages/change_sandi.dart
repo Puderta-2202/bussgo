@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'app_color.dart'; // Pastikan path ini benar
-import 'package:bussgo/model/app_user.dart';
-import 'package:bussgo/model/user_database.dart';
-// import 'package:NAMA_PAKET_ANDA/pages/akun_screen.dart'; // Untuk navigasi kembali jika perlu
+import 'package:bussgo/services/auth_service.dart';
+import 'app_color.dart';
+import 'loginscreen.dart';
 
 class GantiSandiScreen extends StatefulWidget {
   const GantiSandiScreen({Key? key}) : super(key: key);
@@ -13,10 +12,10 @@ class GantiSandiScreen extends StatefulWidget {
 
 class _GantiSandiScreenState extends State<GantiSandiScreen> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _sandiLamaController = TextEditingController();
-  final TextEditingController _sandiBaruController = TextEditingController();
-  final TextEditingController _konfirmasiSandiBaruController =
-      TextEditingController();
+  final _sandiLamaController = TextEditingController();
+  final _sandiBaruController = TextEditingController();
+  final _konfirmasiSandiBaruController = TextEditingController();
+  bool _isLoading = false;
 
   bool _obscureSandiLama = true;
   bool _obscureSandiBaru = true;
@@ -30,76 +29,40 @@ class _GantiSandiScreenState extends State<GantiSandiScreen> {
     super.dispose();
   }
 
-  void _prosesGantiSandi() {
-    FocusScope.of(context).unfocus(); // Tutup keyboard
-
+  // --- FUNGSI GANTI SANDI DIPERBAIKI UNTUK MENGGUNAKAN API ---
+  Future<void> _prosesGantiSandi() async {
     if (_formKey.currentState!.validate()) {
-      AppUser? currentUser = UserDatabase.currentUser;
-      if (currentUser == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            backgroundColor: Colors.red,
-            content: Text('Error: Tidak ada pengguna yang login.'),
-          ),
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        await AuthService.changePassword(
+          currentPassword: _sandiLamaController.text,
+          newPassword: _sandiBaruController.text,
+          newPasswordConfirmation: _konfirmasiSandiBaruController.text,
         );
-        return;
-      }
-
-      String sandiLama = _sandiLamaController.text;
-      String sandiBaru = _sandiBaruController.text;
-      // String konfirmasiSandiBaru = _konfirmasiSandiBaruController.text; // Sudah divalidasi di form
-
-      // Verifikasi kata sandi lama
-      if (currentUser.password != sandiLama) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            backgroundColor: Colors.red,
-            content: Text('Kata sandi lama salah!'),
-          ),
-        );
-        return;
-      }
-
-      // Pastikan kata sandi baru tidak sama dengan kata sandi lama
-      if (sandiBaru == sandiLama) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            backgroundColor: Colors.orangeAccent,
-            content: Text(
-              'Kata sandi baru tidak boleh sama dengan kata sandi lama.',
+        if (mounted) _showSuccessDialog(context);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: Colors.red,
+              content: Text(e.toString().replaceFirst('Exception: ', '')),
             ),
-          ),
-        );
-        return;
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
       }
-
-      // Update password di UserDatabase
-      bool berhasilUpdate = UserDatabase.updateUserPassword(
-        currentUser.username,
-        sandiBaru,
-      );
-
-      if (berhasilUpdate && mounted) {
-        // Tambahkan pengecekan mounted
-        _showSuccessDialog(context);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            backgroundColor: Colors.red,
-            content: Text('Gagal memperbarui kata sandi. Coba lagi.'),
-          ),
-        );
-      }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          backgroundColor: Colors.orangeAccent,
-          content: Text('Harap isi semua field dengan benar.'),
-        ),
-      );
     }
   }
 
+  // --- DIALOG SUKSES DIPERBAIKI AGAR LOGOUT DAN KEMBALI KE LOGIN ---
   void _showSuccessDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -116,15 +79,28 @@ class _GantiSandiScreenState extends State<GantiSandiScreen> {
               Text('Berhasil'),
             ],
           ),
-          content: const Text('Kata sandi Anda telah berhasil diperbarui.'),
+          content: const Text(
+            'Kata sandi berhasil diperbarui. Untuk keamanan, silakan login kembali.',
+          ),
           actions: <Widget>[
             TextButton(
               style: TextButton.styleFrom(backgroundColor: mainBlue),
-              child: const Text('OK', style: TextStyle(color: Colors.white)),
-              onPressed: () {
-                Navigator.of(context).pop(); // Tutup dialog
-                Navigator.of(context).pop(); // Kembali ke halaman Akun
+              onPressed: () async {
+                // Hapus dialog dari layar
+                Navigator.of(context).pop();
+
+                // Panggil fungsi logout dari service
+                await AuthService.logout();
+
+                if (!mounted) return;
+
+                // Arahkan ke halaman Login dan hapus semua halaman sebelumnya
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                  (Route<dynamic> route) => false,
+                );
               },
+              child: const Text('OK', style: TextStyle(color: Colors.white)),
             ),
           ],
         );
@@ -135,121 +111,89 @@ class _GantiSandiScreenState extends State<GantiSandiScreen> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-
     return Scaffold(
-      backgroundColor: screenBgLightBlue, // Warna latar dari app_colors.dart
+      backgroundColor: screenBgLightBlue,
       appBar: AppBar(
         title: const Text('Ganti Kata Sandi'),
         centerTitle: true,
         titleTextStyle: TextStyle(
           fontSize: size.width * 0.05,
-          fontWeight: FontWeight.bold, // Dibuat bold agar lebih jelas
+          fontWeight: FontWeight.bold,
           color: Colors.white,
         ),
-        backgroundColor: mainBlue, // Warna AppBar dari app_colors.dart
+        backgroundColor: mainBlue,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        elevation: 0, // Menghilangkan shadow jika diinginkan
       ),
       body: SingleChildScrollView(
-        // Agar bisa di-scroll jika konten melebihi layar
         padding: EdgeInsets.symmetric(
-          horizontal: size.width * 0.07, // Padding kiri kanan
-          vertical: size.height * 0.03, // Padding atas bawah
+          horizontal: size.width * 0.07,
+          vertical: size.height * 0.03,
         ),
         child: Form(
           key: _formKey,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(height: size.height * 0.02),
               Text(
-                'MASUKKAN KATA SANDI LAMA & BARU ANDA UNTUK MENGGANTI KATA SANDI',
+                'Untuk keamanan, kata sandi lama Anda diperlukan untuk mengatur kata sandi baru.',
+                textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.black87, // Warna teks lebih standar
-                  fontSize:
-                      size.width * 0.038, // Sedikit menyesuaikan ukuran font
-                  fontWeight: FontWeight.w500,
-                  fontFamily: 'Maname', // Pastikan font ini ada
+                  color: Colors.black87,
+                  fontSize: size.width * 0.038,
                 ),
-                textAlign: TextAlign.center, // Agar teks deskripsi di tengah
               ),
               const SizedBox(height: 30),
-
               _buildPasswordField(
                 label: 'Kata Sandi Lama',
-                size: size,
                 controller: _sandiLamaController,
                 obscureText: _obscureSandiLama,
-                onToggleObscure: () {
-                  setState(() {
-                    _obscureSandiLama = !_obscureSandiLama;
-                  });
-                },
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Kata sandi lama tidak boleh kosong';
-                  }
-                  return null;
-                },
+                onToggleObscure:
+                    () =>
+                        setState(() => _obscureSandiLama = !_obscureSandiLama),
+                validator:
+                    (v) =>
+                        (v == null || v.isEmpty)
+                            ? 'Kata sandi lama tidak boleh kosong'
+                            : null,
               ),
-              SizedBox(height: size.height * 0.015), // Spasi antar field
-
               _buildPasswordField(
                 label: 'Kata Sandi Baru',
-                size: size,
                 controller: _sandiBaruController,
                 obscureText: _obscureSandiBaru,
-                onToggleObscure: () {
-                  setState(() {
-                    _obscureSandiBaru = !_obscureSandiBaru;
-                  });
-                },
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Kata sandi baru tidak boleh kosong';
-                  }
-                  if (value.length < 6) {
-                    return 'Kata sandi minimal 6 karakter';
-                  }
-                  return null;
-                },
+                onToggleObscure:
+                    () =>
+                        setState(() => _obscureSandiBaru = !_obscureSandiBaru),
+                validator:
+                    (v) =>
+                        (v != null && v.length < 8)
+                            ? 'Password minimal 8 karakter'
+                            : null,
               ),
-              SizedBox(height: size.height * 0.015),
-
               _buildPasswordField(
                 label: 'Ulang Kata Sandi Baru',
-                size: size,
                 controller: _konfirmasiSandiBaruController,
                 obscureText: _obscureKonfirmasiSandiBaru,
-                onToggleObscure: () {
-                  setState(() {
-                    _obscureKonfirmasiSandiBaru = !_obscureKonfirmasiSandiBaru;
-                  });
-                },
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Konfirmasi kata sandi baru tidak boleh kosong';
-                  }
-                  if (value != _sandiBaruController.text) {
-                    return 'Konfirmasi kata sandi tidak cocok';
-                  }
+                onToggleObscure:
+                    () => setState(
+                      () =>
+                          _obscureKonfirmasiSandiBaru =
+                              !_obscureKonfirmasiSandiBaru,
+                    ),
+                validator: (v) {
+                  if (v != _sandiBaruController.text)
+                    return 'Konfirmasi password tidak cocok';
                   return null;
                 },
               ),
+              SizedBox(height: size.height * 0.05),
               SizedBox(
-                height: size.height * 0.05,
-              ), // Spasi lebih besar sebelum tombol
-
-              SizedBox(
-                width: double.infinity, // Tombol selebar layar
+                width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _prosesGantiSandi,
+                  onPressed: _isLoading ? null : _prosesGantiSandi,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        mainBlue, // Warna tombol dari app_colors.dart
+                    backgroundColor: mainBlue,
                     padding: EdgeInsets.symmetric(
                       vertical: size.height * 0.018,
                     ),
@@ -257,14 +201,17 @@ class _GantiSandiScreenState extends State<GantiSandiScreen> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  child: Text(
-                    'Perbarui',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: size.width * 0.045,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  child:
+                      _isLoading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : Text(
+                            'Perbarui',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: size.width * 0.045,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                 ),
               ),
             ],
@@ -276,16 +223,15 @@ class _GantiSandiScreenState extends State<GantiSandiScreen> {
 
   Widget _buildPasswordField({
     required String label,
-    required Size size,
     required TextEditingController controller,
     required bool obscureText,
     required VoidCallback onToggleObscure,
     String? Function(String?)? validator,
   }) {
+    // UI helper ini tidak berubah, sudah benar
+    final size = MediaQuery.of(context).size;
     return Padding(
-      padding: EdgeInsets.only(
-        bottom: size.height * 0.02,
-      ), // Spasi standar antar field
+      padding: EdgeInsets.only(bottom: size.height * 0.02),
       child: TextFormField(
         controller: controller,
         obscureText: obscureText,
@@ -297,7 +243,7 @@ class _GantiSandiScreenState extends State<GantiSandiScreen> {
             color: Colors.black54,
           ),
           filled: true,
-          fillColor: Colors.white, // Latar belakang field putih
+          fillColor: Colors.white,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
             borderSide: BorderSide(color: Colors.grey.shade300),
@@ -307,23 +253,8 @@ class _GantiSandiScreenState extends State<GantiSandiScreen> {
             borderRadius: BorderRadius.circular(10),
           ),
           focusedBorder: OutlineInputBorder(
-            borderSide: BorderSide(
-              color: mainBlue,
-              width: 1.5,
-            ), // Dari app_colors.dart
+            borderSide: const BorderSide(color: mainBlue, width: 1.5),
             borderRadius: BorderRadius.circular(10),
-          ),
-          errorBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: Colors.red.shade400, width: 1),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          focusedErrorBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: Colors.red.shade700, width: 1.5),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          contentPadding: EdgeInsets.symmetric(
-            horizontal: 15,
-            vertical: size.height * 0.017,
           ),
           suffixIcon: IconButton(
             icon: Icon(

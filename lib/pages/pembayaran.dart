@@ -1,112 +1,82 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'perjalanan_screen.dart';
-import 'jadwalkeberangkatan.dart' show JadwalKeberangkatanModel;
-import 'home_screen.dart';
+import 'package:bussgo/services/pembayaran_service.dart';
 import 'app_color.dart';
-import 'tiket_service.dart';
-import 'tiket_saya.dart'
-    show Tiket, TiketSayaPage; // Model Tiket dari tiket_saya.dart
+import 'home_screen.dart';
+import 'tiket_saya.dart';
+import 'package:bussgo/enum/metode_pembayaran.dart';
 
-class KonfirmasiPembayaranScreen extends StatelessWidget {
+class KonfirmasiPembayaranScreen extends StatefulWidget {
   final MetodePembayaran metodePembayaran;
+  final int pemesananId;
   final int totalHarga;
-  final DateTime batasWaktuPembayaran;
-  final String kotaAsal;
-  final String kotaTujuan;
-  final DateTime tanggalKeberangkatan;
-  final JadwalKeberangkatanModel jadwalTerpilih;
-  final int jumlahPenumpang;
+  final String kodeBooking;
+  final double saldoAwal;
 
   const KonfirmasiPembayaranScreen({
     Key? key,
     required this.metodePembayaran,
+    required this.pemesananId,
     required this.totalHarga,
-    required this.batasWaktuPembayaran,
-    required this.kotaAsal,
-    required this.kotaTujuan,
-    required this.tanggalKeberangkatan,
-    required this.jadwalTerpilih,
-    required this.jumlahPenumpang,
+    required this.kodeBooking,
+    required this.saldoAwal,
   }) : super(key: key);
 
-  int _parseHarga(String hargaString) {
-    String numericString = hargaString.replaceAll(
-      RegExp(r'K', caseSensitive: false),
-      '000',
-    );
-    numericString = numericString.replaceAll(RegExp(r'[^0-9]'), '');
-    return int.tryParse(numericString) ?? 0;
-  }
+  @override
+  State<KonfirmasiPembayaranScreen> createState() =>
+      _KonfirmasiPembayaranScreenState();
+}
 
-  // Fungsi untuk membuat dan menyimpan tiket
-  void _prosesPembelianSelesai(BuildContext context) {
-    String bookingId = TicketService.generateBookingId();
-    String formattedTanggal = DateFormat(
-      'EEEE, dd MMMM yyyy',
-      'id_ID',
-    ).format(tanggalKeberangkatan);
-    String waktuKeberangkatanDisplay =
-        "${jadwalTerpilih.waktuBerangkat} - ${jadwalTerpilih.waktuSampai}";
-    // Harga di model Tiket bisa jadi harga total atau harga per tiket, sesuaikan
-    String hargaDisplay = NumberFormat.currency(
-      locale: 'id_ID',
-      symbol: 'IDR ',
-      decimalDigits: 0,
-    ).format(totalHarga);
+class _KonfirmasiPembayaranScreenState
+    extends State<KonfirmasiPembayaranScreen> {
+  bool _isLoading = false;
 
-    // Membuat detail nomor kursi (contoh sederhana)
-    String nomorKursiDisplay = "$jumlahPenumpang Kursi";
-    // Jika Anda menyimpan detail kursi yang dipilih (misalnya dari _detailKursiTerpilih di HomeScreen),
-    // Anda bisa meneruskannya sampai sini dan memformatnya.
-    // Contoh: nomorKursiDisplay = detailKursiYangDipilih.join(', ');
-
-    Tiket tiketBaru = Tiket(
-      id: bookingId,
-      jenisTiket:
-          'Tiket ${jadwalTerpilih.namaBus}', // atau jenis tiket yang lebih spesifik
-      tanggalKeberangkatan: formattedTanggal,
-      waktuKeberangkatan: waktuKeberangkatanDisplay,
-      kotaAsal: kotaAsal,
-      kotaTujuan: kotaTujuan,
-      namaBus: jadwalTerpilih.namaBus,
-      nomorKursi: nomorKursiDisplay, // Bisa lebih detail jika ada data kursi
-      harga: hargaDisplay, // Ini total harga
-    );
-
-    TicketService.addPurchasedTicket(tiketBaru);
-
-    // Navigasi ke halaman Tiket Saya setelah tiket ditambahkan
-    // Menggunakan pushAndRemoveUntil agar pengguna tidak bisa kembali ke halaman pembayaran
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const TiketSayaPage(),
-      ), // TiketSayaPage akan load dari TicketService
-      (route) => false, // Hapus semua rute sebelumnya
-    );
+  void _prosesPembayaranSaldo() async {
+    setState(() {
+      _isLoading = true;
+    });
+    try {
+      await PembayaranService.bayarDenganSaldo(widget.pemesananId);
+      if (!mounted) return;
+      _showSuccessDialog();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.red,
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    String appBarTitle = "Konfirmasi Pembayaran";
+    String appBarTitle;
     Widget bodyContent;
 
-    switch (metodePembayaran) {
+    switch (widget.metodePembayaran) {
       case MetodePembayaran.qris:
-        appBarTitle = "Qris";
+        appBarTitle = "Pembayaran QRIS";
         bodyContent = _buildQrisContent(context);
         break;
       case MetodePembayaran.mBanking:
-        appBarTitle = "M-Banking";
+        appBarTitle = "Pembayaran M-Banking";
         bodyContent = _buildMBankingContent(context);
         break;
       case MetodePembayaran.busPay:
-        appBarTitle = "Bus Pay";
+        appBarTitle = "Konfirmasi BusPay";
         bodyContent = _buildBusPayContent(context);
         break;
       default:
+        appBarTitle = "Error";
         bodyContent = const Center(
           child: Text("Metode pembayaran tidak valid."),
         );
@@ -115,17 +85,17 @@ class KonfirmasiPembayaranScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: screenBgLightBlue,
       appBar: AppBar(
-        backgroundColor: mainBlue,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
         title: Text(
           appBarTitle,
           style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
           ),
+        ),
+        backgroundColor: mainBlue,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.of(context).pop(),
         ),
         centerTitle: true,
       ),
@@ -136,382 +106,264 @@ class KonfirmasiPembayaranScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildQrisContent(BuildContext context) {
-    // ... (UI QRIS tetap sama)
-    // Tambahkan tombol "Saya Sudah Bayar" yang memanggil _prosesPembelianSelesai
-    String formattedBatasWaktu = DateFormat(
-      'EEEE, dd MMMM HH:mm:ss',
-      'id_ID',
-    ).format(batasWaktuPembayaran);
-    String formattedTanggalPerjalanan = DateFormat(
-      'EEEE, dd MMMM yyyy',
-      'id_ID',
-    ).format(tanggalKeberangkatan);
-    String waktuPerjalanan =
-        "${jadwalTerpilih.waktuBerangkat} - ${jadwalTerpilih.waktuSampai}";
-    String paymentCode = "100498673549808";
-    int hargaSatuan = _parseHarga(jadwalTerpilih.harga);
-    String formattedHargaSatuan = NumberFormat.currency(
-      locale: 'id_ID',
-      symbol: '',
-      decimalDigits: 0,
-    ).format(hargaSatuan);
+  Widget _buildBusPayContent(BuildContext context) {
+    bool bisaBayar = widget.saldoAwal >= widget.totalHarga;
     String formattedTotalHarga = NumberFormat.currency(
       locale: 'id_ID',
-      symbol: 'IDR ',
+      symbol: 'Rp ',
       decimalDigits: 0,
-    ).format(totalHarga);
+    ).format(widget.totalHarga);
+    String formattedSaldoAwal = NumberFormat.currency(
+      locale: 'id_ID',
+      symbol: 'Rp ',
+      decimalDigits: 0,
+    ).format(widget.saldoAwal);
+    String formattedSisaSaldo = NumberFormat.currency(
+      locale: 'id_ID',
+      symbol: 'Rp ',
+      decimalDigits: 0,
+    ).format(widget.saldoAwal - widget.totalHarga);
+
     return Column(
       children: [
         _buildInfoCard(
-          child: Text(
-            "Batas waktu pembayaran\n$formattedBatasWaktu",
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              color: Colors.black87,
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        _buildInfoCard(
+          title: 'Konfirmasi Pembayaran Saldo',
           child: Column(
             children: [
-              Text(
-                "$formattedTanggalPerjalanan     $waktuPerjalanan",
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(kotaAsal, style: const TextStyle(fontSize: 14)),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8.0),
-                    child: Icon(Icons.arrow_forward, size: 16),
-                  ),
-                  Text(kotaTujuan, style: const TextStyle(fontSize: 14)),
-                ],
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        _buildInfoCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Image.asset(
-                    'assets/images/qris_logo.png',
-                    height: 20,
-                    errorBuilder:
-                        (context, error, stackTrace) =>
-                            const Icon(Icons.payment, size: 20),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    "Payment Code",
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                paymentCode,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        _buildInfoCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                "Detail Harga",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text("Penumpang"),
-                  Text("$jumlahPenumpang x $formattedHargaSatuan"),
-                ],
-              ),
-              const Divider(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    "Total Harga",
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    formattedTotalHarga,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: mainBlue,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        _buildInfoCard(
-          child: Column(
-            children: [
-              Image.asset(
-                'assets/images/qris_logo.png',
-                height: 30,
-                errorBuilder:
-                    (context, error, stackTrace) =>
-                        const Icon(Icons.qr_code_scanner_rounded, size: 30),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                "BUSGO SUMATERA UTARA",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                paymentCode,
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-              const SizedBox(height: 10),
-              QrImageView(
-                data: paymentCode,
-                version: QrVersions.auto,
-                size: 180.0,
-                gapless: false,
+              _buildInfoRow('Total Tagihan', formattedTotalHarga),
+              _buildInfoRow('Saldo BusPay Anda', formattedSaldoAwal),
+              const Divider(height: 20, thickness: 1, color: Colors.black12),
+              _buildInfoRow(
+                'Sisa Saldo Setelah Bayar',
+                formattedSisaSaldo,
+                isBold: true,
+                valueColor: mainBlue,
               ),
             ],
           ),
         ),
         const SizedBox(height: 24),
+        if (!bisaBayar)
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Text(
+              'Saldo BusPay Anda tidak mencukupi. Silakan lakukan Top Up terlebih dahulu.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.red),
+            ),
+          )
+        else
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _isLoading ? null : _prosesPembayaranSaldo,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: mainBlue,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child:
+                  _isLoading
+                      ? const SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2.5,
+                        ),
+                      )
+                      : const Text(
+                        'Konfirmasi & Bayar',
+                        style: TextStyle(color: Colors.white, fontSize: 16),
+                      ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildQrisContent(BuildContext context) {
+    return Column(
+      children: [
+        _buildInfoCard(
+          title: 'Scan QRIS untuk Membayar',
+          child: Center(
+            child: QrImageView(
+              data: widget.kodeBooking,
+              version: QrVersions.auto,
+              size: 220.0,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          "Buka aplikasi pembayaran Anda dan scan QRIS di atas. Status tiket akan diperbarui secara otomatis setelah pembayaran berhasil.",
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.black54),
+        ),
+        const SizedBox(height: 24),
         ElevatedButton(
-          onPressed: () => _prosesPembelianSelesai(context),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: mainBlue,
-            padding: const EdgeInsets.symmetric(vertical: 12),
-          ),
-          child: const Text(
-            "Saya Sudah Bayar / Konfirmasi",
-            style: TextStyle(color: Colors.white, fontSize: 16),
-          ),
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text("Kembali"),
         ),
       ],
     );
   }
 
   Widget _buildMBankingContent(BuildContext context) {
-    // ... (UI M-Banking tetap sama)
-    // Modifikasi tombol "Saya Sudah Bayar / Selesai" untuk memanggil _prosesPembelianSelesai
-    String formattedBatasWaktu = DateFormat(
-      'EEEE, dd MMMM HH:mm:ss',
-      'id_ID',
-    ).format(batasWaktuPembayaran);
-    String virtualAccountNumber =
-        "8808 ${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}";
-    String formattedTotalHarga = NumberFormat.currency(
-      locale: 'id_ID',
-      symbol: 'IDR ',
-      decimalDigits: 0,
-    ).format(totalHarga);
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildInfoCard(
-          child: Text(
-            "Batas waktu pembayaran\n$formattedBatasWaktu",
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              color: Colors.black87,
-            ),
-          ),
-        ),
-        const SizedBox(height: 20),
-        const Text(
-          "Instruksi Pembayaran M-Banking",
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        _buildInfoCard(
+          title: 'Instruksi M-Banking',
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                "Silakan lakukan pembayaran ke nomor Virtual Account berikut:",
-                style: TextStyle(fontSize: 14),
+                "Silakan lakukan transfer ke nomor Virtual Account di bawah ini:",
               ),
-              const SizedBox(height: 8),
-              Center(
-                child: Text(
-                  virtualAccountNumber,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
-                  ),
+              const SizedBox(height: 12),
+              SelectableText(
+                "8808${widget.pemesananId.toString().padLeft(8, '0')}",
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 8),
-              Center(
-                child: Text(
-                  "Total Pembayaran: $formattedTotalHarga",
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: mainBlue,
-                  ),
-                ),
-              ),
-              const Divider(height: 24, thickness: 1),
-              const Text(
-                "Langkah-langkah pembayaran:",
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 4),
-              const Text("1. Login ke aplikasi M-Banking Anda."),
-              const Text("2. Pilih menu Transfer, lalu pilih Virtual Account."),
-              const Text("3. Masukkan nomor Virtual Account di atas."),
-              const Text("4. Masukkan jumlah pembayaran sesuai total di atas."),
-              const Text(
-                "5. Ikuti instruksi selanjutnya untuk menyelesaikan pembayaran.",
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                "Pastikan Anda melakukan pembayaran sebelum batas waktu.",
-                style: TextStyle(
-                  fontStyle: FontStyle.italic,
-                  fontSize: 12,
-                  color: Colors.red,
+              Text(
+                NumberFormat.currency(
+                  locale: 'id_ID',
+                  symbol: 'Rp ',
+                  decimalDigits: 0,
+                ).format(widget.totalHarga),
+                style: const TextStyle(
+                  fontSize: 18,
+                  color: mainBlue,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
-          ),
-        ),
-        const SizedBox(height: 24),
-        Center(
-          child: ElevatedButton(
-            onPressed: () => _prosesPembelianSelesai(context),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: mainBlue,
-              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
-            ),
-            child: const Text(
-              "Saya Sudah Bayar / Konfirmasi",
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBusPayContent(BuildContext context) {
-    double saldoAwalNumerik = HomeScreenState.numericalBusPayBalance;
-    double saldoAkhirNumerik = saldoAwalNumerik - totalHarga;
-
-    // Panggil _prosesPembelianSelesai setelah update saldo
-    // Ini akan terjadi sebelum widget ini di-build sepenuhnya, jadi kita panggil di sini
-    // atau lebih baik, panggil di onPressed tombol "Selesai"
-    // HomeScreenState.updateAndFormatBusPayBalance(saldoAkhirNumerik); // Pindahkan ini ke onPressed
-
-    String formattedTotalHarga = NumberFormat.currency(
-      locale: 'id_ID',
-      symbol: 'IDR ',
-      decimalDigits: 0,
-    ).format(totalHarga);
-    // Untuk menampilkan sisa saldo, kita ambil dari HomeScreenState setelah update
-    // String formattedSisaSaldo = HomeScreenState.busPayBalanceString; // Akan diupdate setelah tombol ditekan
-
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        const SizedBox(height: 30),
-        Icon(
-          Icons.check_circle_outline_rounded,
-          color: Colors.green[600],
-          size: 80,
-        ),
-        const SizedBox(height: 20),
-        const Text(
-          "Pembayaran Diproses...",
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: Colors.orangeAccent,
           ),
         ),
         const SizedBox(height: 16),
-        _buildInfoCard(
-          child: Column(
-            children: [
-              Text(
-                "Pembayaran dengan Bus Pay sebesar $formattedTotalHarga sedang diproses.",
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 16),
-              ),
-              const SizedBox(height: 10),
-              // Tampilkan saldo awal, atau pesan bahwa saldo akan diupdate
-              Text(
-                "Saldo Bus Pay Anda akan segera diperbarui.",
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
+        const Text(
+          "Status tiket akan diperbarui secara otomatis oleh sistem setelah Anda berhasil transfer.",
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.black54),
         ),
-        const SizedBox(height: 30),
+        const SizedBox(height: 24),
         ElevatedButton(
-          onPressed: () {
-            // Lakukan update saldo SEKARANG, lalu proses pembelian selesai
-            HomeScreenState.updateAndFormatBusPayBalance(saldoAkhirNumerik);
-            _prosesPembelianSelesai(context);
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: mainBlue,
-            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-          ),
-          child: const Text(
-            "Konfirmasi & Lihat Tiket",
-            style: TextStyle(fontSize: 16, color: Colors.white),
-          ),
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text("Kembali"),
         ),
       ],
     );
   }
 
-  Widget _buildInfoCard({required Widget child}) {
+  Widget _buildInfoCard({String? title, required Widget child}) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
-        color: cardBgColor,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: child,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (title != null) ...[
+            Text(
+              title,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+          ],
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(
+    String label,
+    String value, {
+    bool isBold = false,
+    Color? valueColor,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(fontSize: 14, color: Colors.black54),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+              color: valueColor ?? Colors.black,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSuccessDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
+            ),
+            title: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.green),
+                SizedBox(width: 10),
+                Text('Pembayaran Berhasil'),
+              ],
+            ),
+            content: Text(
+              'Tiket Anda untuk kode booking ${widget.kodeBooking} telah berhasil diterbitkan.',
+            ),
+            actions: [
+              TextButton(
+                style: TextButton.styleFrom(backgroundColor: mainBlue),
+                onPressed: () {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (context) => const HomeScreen()),
+                    (route) => false,
+                  );
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const TiketSayaPage(),
+                    ),
+                  );
+                },
+                child: const Text(
+                  'Lihat Tiket Saya',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
     );
   }
 }
